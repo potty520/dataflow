@@ -38,142 +38,90 @@
 
 ## 2. 环境要求
 
-| 组件 | 最低版本 | 验证命令 |
-|------|----------|----------|
-| JDK | 17+ | `java -version` |
-| Node.js | 18+ | `node -v` |
-| Maven | 3.8+ | `mvn -v` |
-| MySQL | 8.0+ | 远程 103.236.96.82:13306 |
-| Docker | 20.10+ | `docker --version` |
+| 组件 | 最低版本 | 说明 |
+|------|----------|------|
+| Docker | 20.10+ | 一键部署必需 |
+| Docker Compose | v2 | 一键部署必需 |
+| JDK | 17+ | 仅手动部署需要 |
+| Node.js | 18+ | 仅手动部署需要 |
+| Maven | 3.8+ | 仅手动部署需要 |
 
 ---
 
 ## 3. 快速部署指南
 
-### 3.1 数据库初始化
+### 3.1 🐳 Docker 一键部署（推荐）
 
-**连接信息:**
-```
-主机: 103.236.96.82
-端口: 13306
-用户: remote
-密码: (联系管理员)
-数据库: dataflow
-```
-
-**初始化步骤:**
-
-```bash
-# 1. 建表
-mysql -h 103.236.96.82 -P 13306 -u remote -p \
-  --default-character-set=utf8mb4 \
-  dataflow < sql/schema-mysql.sql
-
-# 2. 导入初始数据（包含管理员账号、菜单、种子数据）
-mysql -h 103.236.96.82 -P 13306 -u remote -p \
-  --default-character-set=utf8mb4 \
-  dataflow < sql/init-data-mysql.sql
-
-# 3. 验证
-mysql -h 103.236.96.82 -P 13306 -u remote -p -e \
-  "SELECT COUNT(*) AS tables FROM information_schema.tables WHERE table_schema='dataflow';"
-# 应返回: 65
-```
-
-> **⚠️ 重要:** 必须使用 `--default-character-set=utf8mb4` 参数，否则中文会乱码！
-
-### 3.2 Docker 外部依赖启动
+**一行命令启动全部服务**（MySQL + Redis + ES + Kafka + MinIO + Mailpit + 后端 + 前端共 10 个容器）：
 
 ```bash
 cd docker/
 docker compose up -d
 ```
 
-| 服务 | 端口 | 用户名 | 密码 | 验证命令 |
-|------|------|--------|------|----------|
-| Elasticsearch | 9200 | — | — | `curl http://localhost:9200` |
-| Kafka | 9092 | — | — | — |
-| Zookeeper | 2181 | — | — | `echo ruok \| nc localhost 2181` → imok |
-| MinIO | 9000 | minioadmin | minioadmin123 | `curl http://localhost:9000/minio/health/live` |
-| Redis | 6380 | — | — | `redis-cli -p 6380 ping` → PONG |
-| Mailpit | 1025/8025 | — | — | `curl http://localhost:8025` |
+**首次启动自动完成:**
+1. 创建 MySQL 容器并执行 `schema-mysql.sql` 建表
+2. 导入 `init-data-mysql.sql` 种子数据（含管理员、菜单等）
+3. 启动 Redis、ES、Kafka、MinIO、Mailpit
+4. 编译并启动后端 Spring Boot 镜像
+5. 编译前端并启动 Nginx
 
-### 3.3 后端启动
+**服务端口:**
 
-```bash
-cd backend/
-
-# 编译
-mvn clean compile -DskipTests
-
-# 启动（MySQL profile）
-mvn spring-boot:run -Dspring-boot.run.profiles=mysql
-
-# 后台运行
-nohup mvn spring-boot:run -Dspring-boot.run.profiles=mysql > /tmp/dataflow.log 2>&1 &
-```
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| 前端 (Nginx) | **80** | 浏览器访问 http://localhost |
+| 后端 (Spring Boot) | 8088 | REST API |
+| MySQL | 13306 | 数据库 |
+| Redis | 6380 | 缓存/限流 |
+| Elasticsearch | 9200 | 全文搜索 |
+| Kafka | 9092 | 消息队列 |
+| Zookeeper | 2181 | Kafka 协调 |
+| MinIO API | 9000 | 对象存储 |
+| MinIO Console | 9001 | MinIO 管理界面 |
+| Mailpit SMTP | 1025 | 邮件发送 |
+| Mailpit UI | 8025 | 邮件查看 |
 
 **验证:**
 ```bash
-# 健康检查
+# 查看容器状态（10 个全部 healthy/running）
+docker compose -f docker/docker-compose.yml ps
+
+# 登录测试
 curl -s -X POST http://localhost:8088/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
-# 返回: {"code":200,...}
-
-# 默认端口: 8088
+  -d "{\"username\":\"admin\",\"password\":\"admin123\"}"
 ```
 
-**配置文件:** `backend/src/main/resources/application.yml`
-
-```yaml
-# MySQL profile 关键配置
-spring:
-  config:
-    activate:
-      on-profile: mysql
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://103.236.96.82:13306/dataflow?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&characterSetResults=utf8
-    username: remote
-    password: (数据库密码)
+**常用管理:**
+```bash
+docker compose -f docker/docker-compose.yml down       # 停止并删除容器
+docker compose -f docker/docker-compose.yml down -v    # 附加删除数据卷
+docker compose -f docker/docker-compose.yml restart    # 重启
 ```
 
-> **⚠️ 注意:** 首次部署需将 `password` 字段设为真实数据库密码。
+### 3.2 🔧 手动部署
 
-### 3.4 前端启动
+#### 仅中间件 + MySQL（前后端在宿主机运行）
 
 ```bash
+# 启动所有中间件（不含后端和前端镜像）
+docker compose -f docker/docker-compose.yml up -d mysql redis elasticsearch kafka zookeeper minio mailpit
+```
+
+#### 后端
+```bash
+cd backend/
+mvn spring-boot:run -Dspring-boot.run.profiles=mysql
+# 端口: 8088
+```
+
+#### 前端
+```bash
 cd frontend/
-
-# 安装依赖（首次）
-npm install
-
-# 开发模式运行
-npm run dev
-# 输出: http://0.0.0.0:4000/
-
-# 生产构建
-npm run build
-# 产出: dist/
+npm install && npm run dev
+# 端口: 4000
 ```
-
-**Vite 配置关键项** (`vite.config.js`):
-```javascript
-server: {
-  host: '0.0.0.0',   // 局域网可访问
-  port: 4000,
-  proxy: {
-    '/api': {
-      target: 'http://localhost:8088',  // 代理到后端
-      changeOrigin: true
-    }
-  }
-}
-```
-
----
-
 ## 4. 系统配置
 
 ### 默认管理员

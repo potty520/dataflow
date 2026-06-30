@@ -1,10 +1,57 @@
 # ========================================
-# dataflow 平台外部依赖 - Docker Compose
+# 大数据基座平台 — 一键部署 (Docker Compose)
 # ========================================
+# 使用: docker compose up -d
+# 前端: http://localhost  (nginx → 后端 8088)
+# 后端: http://localhost:8088
+# 登录: admin / admin123
+# ========================================
+
 version: '3.8'
 
 services:
-  # === Elasticsearch - 全文搜索 + 元数据检索 ===
+  # ==================== 数据库 ====================
+  mysql:
+    image: mysql:8.4
+    container_name: dataflow-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: dataflow_root_2024
+      MYSQL_DATABASE: dataflow
+      MYSQL_USER: dataflow
+      MYSQL_PASSWORD: dataflow_pass_2024
+    ports:
+      - "13306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../sql/schema-mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../sql/init-data-mysql.sql:/docker-entrypoint-initdb.d/02-init-data.sql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "dataflow", "-pdataflow_pass_2024"]
+      interval: 10s
+      retries: 10
+      start_period: 40s
+    mem_limit: 512m
+
+  # ==================== Redis ====================
+  redis:
+    image: redis:7-alpine
+    container_name: dataflow-redis
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+    mem_limit: 192m
+
+  # ==================== Elasticsearch ====================
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: dataflow-es
@@ -22,7 +69,7 @@ services:
       retries: 5
     mem_limit: 512m
 
-  # === Kafka + Zookeeper - 实时流处理 ===
+  # ==================== Kafka + Zookeeper ====================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: dataflow-zk
@@ -41,37 +88,17 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      retries: 5
     mem_limit: 512m
 
-  # === Redis - 缓存 / 限流 / 会话 / 配置热更新 ===
-  redis:
-    image: redis:7-alpine
-    container_name: dataflow-redis
-    ports:
-      - "6380:6379"
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      retries: 5
-    mem_limit: 192m
-
-  # === SMTP 邮件测试服务器 (Mailpit) ===
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: dataflow-mailpit
-    ports:
-      - "1025:1025"    # SMTP
-      - "8025:8025"    # Web UI
-    mem_limit: 64m
-
-  # === MinIO - S3兼容对象存储 (替代HDFS开发环境) ===
+  # ==================== MinIO (对象存储) ====================
   minio:
     image: minio/minio:latest
     container_name: dataflow-minio
@@ -80,13 +107,71 @@ services:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: admin123456
     ports:
-      - "9000:9000"    # API
-      - "9001:9001"    # Console
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      retries: 5
     mem_limit: 256m
 
+  # ==================== Mailpit (邮件测试) ====================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: dataflow-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    mem_limit: 64m
+
+  # ==================== 后端 (Spring Boot) ====================
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: dataflow-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/dataflow?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&characterSetResults=utf8
+      - SPRING_DATASOURCE_USERNAME=dataflow
+      - SPRING_DATASOURCE_PASSWORD=dataflow_pass_2024
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - MINIO_ENDPOINT=http://minio:9000
+      - MAIL_HOST=mailpit
+      - MAIL_PORT=1025
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/api/auth/captcha"]
+      interval: 15s
+      retries: 5
+      start_period: 60s
+    mem_limit: 512m
+
+  # ==================== 前端 (Nginx + Vue) ====================
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: dataflow-frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    mem_limit: 64m
+
 volumes:
+  mysql_data:
+  redis_data:
   es_data:
   minio_data:
-  redis_data:
