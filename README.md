@@ -1,6 +1,6 @@
 # 大数据基座平台
 
-基于《大数据平台基座项目软件需求规格说明书》实现的 Java + Vue 全栈项目。
+> 数字政府大数据全生命周期管理平台 — 基于 Spring Boot + Vue 3 全栈实现
 
 ## 技术栈
 
@@ -8,60 +8,58 @@
 |------|------|
 | 后端 | Spring Boot 2.7、Spring Security、JWT、MyBatis-Plus |
 | 前端 | Vue 3、Vite、Element Plus、Pinia、Vue Router |
-| 数据库 | H2（开发默认）/ MySQL（生产可选） |
+| 数据库 | MySQL 8.0（utf8mb4） |
+| 中间件 | Elasticsearch、Kafka、Redis、MinIO、Mailpit |
 
-## 子系统实现情况
+## 子系统
 
-| 子系统 | 状态 | 说明 |
-|--------|------|------|
-| 统一门户 | ✅ 已实现 | 租户/用户/角色/部门/菜单/日志/个人中心/RBAC |
-| 数据汇聚平台 | ✅ 已实现 | 数据源、增量字段、数据流、监控、整库同步、CDC |
-| 数据治理平台 | ✅ 已实现 | 数据标准、仓库分层、数据建模、指标管理、代理节点 |
-| 数据开发平台 | ✅ 已实现 | 工作流、脚本、数据质量、数据调度 |
-| 数据服务平台 | ✅ 已实现 | 应用、API、服务目录、工单、服务单元、流控策略 |
-| 数据资产平台 | ✅ 已实现 | 数据总览、数据地图、资产监控、血缘 |
-| 基础支撑平台 | ✅ 已实现 | 组件管理、集群管理、主机管理 |
+| 子系统 | 功能模块 |
+|--------|----------|
+| 统一门户 | 租户/用户/角色/部门/菜单/日志/个人中心/RBAC |
+| 数据汇聚 | 数据源、数据流、全量同步、CDC、汇聚监控 |
+| 数据治理 | 数据标准、代码集、数仓分层、模型设计、指标管理、代理节点 |
+| 数据开发 | 项目、脚本、工作流、调度、质量规则、HDFS/UDF |
+| 数据服务 | API、应用、服务目录、服务单元、流控策略、工单 |
+| 数据资产 | 数据地图、血缘追踪、资产总览、收藏/关注 |
+| 基础支撑 | 集群、主机、组件、资源组、存储配额、监控 |
 
 ## 快速启动
 
-### 1. 启动后端
+详见 [docs/DEPLOY.md](docs/DEPLOY.md)
+
+### 1. 数据库
+
+```bash
+mysql -h <host> -P 13306 -u remote -p --default-character-set=utf8mb4 dataflow < sql/schema-mysql.sql
+mysql -h <host> -P 13306 -u remote -p --default-character-set=utf8mb4 dataflow < sql/init-data-mysql.sql
+```
+
+### 2. Docker 依赖
+
+```bash
+cd docker && docker compose up -d
+```
+
+### 3. 后端
 
 ```bash
 cd backend
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=mysql
+# → http://localhost:8088
 ```
 
-后端地址：http://localhost:8080  
-H2 控制台：http://localhost:8080/h2-console（JDBC URL: `jdbc:h2:file:./data/dataflow`）
-
-### 2. 启动前端
+### 4. 前端
 
 ```bash
 cd frontend
-npm install
-npm run dev
+npm install && npm run dev
+# → http://localhost:4000
 ```
 
-前端地址：http://localhost:5173
-
-### 3. 默认账号
+### 5. 登录
 
 - 用户名：`admin`
 - 密码：`admin123`
-
-## 使用 MySQL
-
-1. 创建数据库 `dataflow`
-2. 执行 `sql/schema-mysql.sql`
-3. 启动时指定 profile：
-
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=mysql
-```
-
-并修改 `application.yml` 中 mysql 数据源账号密码。
-
-**新增模块后若使用 H2，需删除 `backend/data` 目录后重启**，以便重新初始化数据库表和示例数据。
 
 ## 项目结构
 
@@ -69,31 +67,27 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mysql
 dataflow/
 ├── backend/                 # Spring Boot 后端
 │   └── src/main/java/com/zhangye/dataflow/
-│       ├── controller/      # REST API
-│       ├── entity/          # 实体类
-│       ├── mapper/          # MyBatis Mapper
-│       └── security/        # JWT 认证
+│       ├── controller/      # 20个 REST Controller
+│       ├── entity/          # 65个 Entity
+│       ├── mapper/          # 65个 MyBatis Mapper
+│       ├── service/         # 业务服务层
+│       ├── security/        # JWT + Spring Security
+│       ├── config/          # 配置文件
+│       └── common/          # 公共类
 ├── frontend/                # Vue 3 前端
 │   └── src/
-│       ├── views/portal/    # 统一门户页面
-│       ├── views/aggregation/  # 数据汇聚页面
-│       └── views/service/   # 数据服务页面
-├── sql/                     # 数据库脚本
-└── requirements_extracted.txt  # 需求文档提取文本
+│       ├── views/           # 7个子系统页面
+│       ├── api/             # 后端 API 调用
+│       ├── router/          # 49条路由
+│       └── layout/          # 布局组件
+├── sql/                     # 完整DDL + 种子数据
+├── docker/                  # Docker Compose
+└── docs/                    # 操作文档 + 测试报告
 ```
 
-## API 概览
+## 文档
 
-- `POST /api/auth/login` - 登录
-- `GET /api/portal/tenant/page` - 租户分页
-- `GET /api/portal/user/page` - 用户分页
-- `GET /api/aggregation/datasource/page` - 数据源分页
-- `GET /api/aggregation/dataflow/page` - 数据流分页
-- `GET /api/dashboard/stats` - 首页统计
-
-完整 API 见各 Controller 类。
-
-## 说明
-
-需求规格说明书涵盖 7 大子系统、数百项功能点（含 Hadoop 集群管理、LLVM 引擎等底层能力）。本项目实现了可运行的核心基座与管理功能，其余模块已预留菜单路由与数据库表结构，可按优先级分期建设。
-"# dataflow" 
+- [操作文档 (DEPLOY.md)](docs/DEPLOY.md) — 完整部署运维指南
+- [后端测试报告](docs/backend-logic-test.md) — 61端点 100%通过
+- [前端测试报告](docs/frontend-e2e-test.md) — 39页面 97.4%通过
+- [需求规格说明书](需求说明书—大数据基座平台.md)
