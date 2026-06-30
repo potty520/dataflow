@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhangye.dataflow.common.PageResult;
 import com.zhangye.dataflow.common.Result;
 import com.zhangye.dataflow.entity.SysOperLog;
+import com.zhangye.dataflow.entity.UserActivityLog;
 import com.zhangye.dataflow.mapper.SysOperLogMapper;
+import com.zhangye.dataflow.mapper.UserActivityLogMapper;
 import com.zhangye.dataflow.security.SecurityUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,11 @@ import org.springframework.web.bind.annotation.*;
 public class LogController {
 
     private final SysOperLogMapper operLogMapper;
+    private final UserActivityLogMapper activityLogMapper;
 
-    public LogController(SysOperLogMapper operLogMapper) {
+    public LogController(SysOperLogMapper operLogMapper, UserActivityLogMapper activityLogMapper) {
         this.operLogMapper = operLogMapper;
+        this.activityLogMapper = activityLogMapper;
     }
 
     @GetMapping("/page")
@@ -61,5 +65,27 @@ public class LogController {
     @GetMapping("/{id}")
     public Result<SysOperLog> detail(@PathVariable Long id) {
         return Result.ok(operLogMapper.selectById(id));
+    }
+
+    @GetMapping("/activity/page")
+    public Result<PageResult<UserActivityLog>> activityPage(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String activityType) {
+        LambdaQueryWrapper<UserActivityLog> qw = new LambdaQueryWrapper<>();
+        Long tenantId = SecurityUtils.getCurrentTenantId();
+        if (tenantId != null) {
+            qw.eq(UserActivityLog::getTenantId, tenantId);
+        }
+        if (StringUtils.hasText(username)) {
+            qw.like(UserActivityLog::getUsername, username);
+        }
+        if (StringUtils.hasText(activityType)) {
+            qw.eq(UserActivityLog::getActivityType, activityType);
+        }
+        qw.orderByDesc(UserActivityLog::getCreateTime);
+        Page<UserActivityLog> p = activityLogMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
     }
 }

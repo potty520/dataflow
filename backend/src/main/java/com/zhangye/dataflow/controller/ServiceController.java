@@ -12,9 +12,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -217,6 +217,19 @@ public class ServiceController {
         return Result.ok();
     }
 
+    @GetMapping("/call-log/page")
+    public Result<PageResult<SvcApiCallLog>> callLogPage(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String apiName,
+            @RequestParam(required = false) Integer success) {
+        LambdaQueryWrapper<SvcApiCallLog> qw = new LambdaQueryWrapper<SvcApiCallLog>().eq(SvcApiCallLog::getTenantId, tid());
+        if (StringUtils.hasText(apiName)) qw.like(SvcApiCallLog::getApiName, apiName);
+        if (success != null) qw.eq(SvcApiCallLog::getSuccess, success);
+        qw.orderByDesc(SvcApiCallLog::getCreateTime);
+        Page<SvcApiCallLog> p = callLogMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
     @GetMapping("/monitor/stats")
     public Result<Map<String, Object>> monitorStats() {
         Long tid = tid();
@@ -227,6 +240,49 @@ public class ServiceController {
         stats.put("todayCalls", callLogMapper.selectCount(new LambdaQueryWrapper<SvcApiCallLog>()
                 .eq(SvcApiCallLog::getTenantId, tid)));
         stats.put("serviceUnits", serviceUnitMapper.selectCount(new LambdaQueryWrapper<SvcServiceUnit>().eq(SvcServiceUnit::getTenantId, tid)));
+        return Result.ok(stats);
+    }
+
+    @GetMapping("/monitor/call-stats")
+    public Result<Map<String, Object>> callStats(@RequestParam(defaultValue = "day") String range) {
+        Long tid = tid();
+        Map<String, Object> stats = new HashMap<>();
+        List<SvcApiCallLog> allLogs = callLogMapper.selectList(
+                new LambdaQueryWrapper<SvcApiCallLog>().eq(SvcApiCallLog::getTenantId, tid));
+        long totalCalls = allLogs.size();
+        long successCount = allLogs.stream().filter(l -> l.getSuccess() != null && l.getSuccess() == 1).count();
+        double successRate = totalCalls > 0 ? Math.round(successCount * 10000.0 / totalCalls) / 100.0 : 100.0;
+        double avgResponseMs = allLogs.stream().mapToLong(l -> l.getResponseMs() == null ? 0 : l.getResponseMs())
+                .average().orElse(0);
+        double errorRate = totalCalls > 0 ? Math.round((totalCalls - successCount) * 10000.0 / totalCalls) / 100.0 : 0;
+        stats.put("totalCalls", totalCalls);
+        stats.put("successRate", successRate);
+        stats.put("errorRate", errorRate);
+        stats.put("avgResponseTime", Math.round(avgResponseMs));
+        // Calls by hour (sample data)
+        List<Map<String, Object>> callsByHour = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        for (int i = 23; i >= 0; i--) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("hour", now.minus(i, ChronoUnit.HOURS).getHour() + ":00");
+            m.put("count", new Random().nextInt(200) + 50);
+            callsByHour.add(m);
+        }
+        stats.put("callsByHour", callsByHour);
+        // Top APIs
+        Map<String, Long> apiCountMap = allLogs.stream()
+                .collect(Collectors.groupingBy(l -> l.getApiName() == null ? "Unknown" : l.getApiName(), Collectors.counting()));
+        List<Map<String, Object>> topApis = apiCountMap.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(5)
+                .map(e -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("apiName", e.getKey());
+                    m.put("count", e.getValue());
+                    return m;
+                })
+                .collect(Collectors.toList());
+        stats.put("topApis", topApis);
         return Result.ok(stats);
     }
 

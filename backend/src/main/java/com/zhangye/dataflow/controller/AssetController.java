@@ -22,13 +22,18 @@ public class AssetController {
     private final AssetFieldMapper fieldMapper;
     private final AssetLineageMapper lineageMapper;
     private final AggDatasourceMapper datasourceMapper;
+    private final AssetFavoriteMapper favoriteMapper;
+    private final AssetFollowMapper followMapper;
 
     public AssetController(AssetTableMapper tableMapper, AssetFieldMapper fieldMapper,
-                           AssetLineageMapper lineageMapper, AggDatasourceMapper datasourceMapper) {
+                           AssetLineageMapper lineageMapper, AggDatasourceMapper datasourceMapper,
+                           AssetFavoriteMapper favoriteMapper, AssetFollowMapper followMapper) {
         this.tableMapper = tableMapper;
         this.fieldMapper = fieldMapper;
         this.lineageMapper = lineageMapper;
         this.datasourceMapper = datasourceMapper;
+        this.favoriteMapper = favoriteMapper;
+        this.followMapper = followMapper;
     }
 
     private Long tid() { return SecurityUtils.getCurrentTenantId(); }
@@ -155,12 +160,76 @@ public class AssetController {
         return Result.ok(graph);
     }
 
-    @PostMapping("/lineage")
-    public Result<Void> createLineage(@RequestBody AssetLineage e) {
-        e.setTenantId(tid());
-        e.setCreateTime(LocalDateTime.now());
-        lineageMapper.insert(e);
-        return Result.ok();
+    // ---------- 收藏 ----------
+    @GetMapping("/favorite/page")
+    public Result<PageResult<AssetFavorite>> favoritePage(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        LambdaQueryWrapper<AssetFavorite> qw = new LambdaQueryWrapper<AssetFavorite>()
+                .eq(AssetFavorite::getTenantId, tid()).eq(AssetFavorite::getUserId, userId);
+        qw.orderByDesc(AssetFavorite::getCreateTime);
+        Page<AssetFavorite> p = favoriteMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
+    @PostMapping("/favorite/toggle")
+    public Result<Map<String, Object>> toggleFavorite(@RequestBody Map<String, Long> body) {
+        Long tableId = body.get("tableId");
+        Long userId = SecurityUtils.getCurrentUserId();
+        AssetFavorite existing = favoriteMapper.selectOne(new LambdaQueryWrapper<AssetFavorite>()
+                .eq(AssetFavorite::getTenantId, tid())
+                .eq(AssetFavorite::getUserId, userId)
+                .eq(AssetFavorite::getAssetTableId, tableId));
+        Map<String, Object> result = new HashMap<>();
+        if (existing != null) {
+            favoriteMapper.deleteById(existing.getId());
+            result.put("favorited", false);
+        } else {
+            AssetFavorite fav = new AssetFavorite();
+            fav.setTenantId(tid());
+            fav.setUserId(userId);
+            fav.setAssetTableId(tableId);
+            fav.setCreateTime(LocalDateTime.now());
+            favoriteMapper.insert(fav);
+            result.put("favorited", true);
+        }
+        return Result.ok(result);
+    }
+
+    // ---------- 关注 ----------
+    @GetMapping("/follow/page")
+    public Result<PageResult<AssetFollow>> followPage(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        LambdaQueryWrapper<AssetFollow> qw = new LambdaQueryWrapper<AssetFollow>()
+                .eq(AssetFollow::getTenantId, tid()).eq(AssetFollow::getUserId, userId);
+        qw.orderByDesc(AssetFollow::getCreateTime);
+        Page<AssetFollow> p = followMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
+    @PostMapping("/follow/toggle")
+    public Result<Map<String, Object>> toggleFollow(@RequestBody Map<String, Long> body) {
+        Long tableId = body.get("tableId");
+        Long userId = SecurityUtils.getCurrentUserId();
+        AssetFollow existing = followMapper.selectOne(new LambdaQueryWrapper<AssetFollow>()
+                .eq(AssetFollow::getTenantId, tid())
+                .eq(AssetFollow::getUserId, userId)
+                .eq(AssetFollow::getAssetTableId, tableId));
+        Map<String, Object> result = new HashMap<>();
+        if (existing != null) {
+            followMapper.deleteById(existing.getId());
+            result.put("followed", false);
+        } else {
+            AssetFollow follow = new AssetFollow();
+            follow.setTenantId(tid());
+            follow.setUserId(userId);
+            follow.setAssetTableId(tableId);
+            follow.setCreateTime(LocalDateTime.now());
+            followMapper.insert(follow);
+            result.put("followed", true);
+        }
+        return Result.ok(result);
     }
 
     @GetMapping("/monitor/stats")

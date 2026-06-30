@@ -12,7 +12,9 @@ public class AssetLineage {
     private Long id;
     private Long tenantId;
     private Long sourceTableId;
+    private Long sourceFieldId;
     private Long targetTableId;
+    private Long targetFieldId;
     private String relationType;
     private LocalDateTime createTime;
 }

@@ -12,10 +12,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/development")
@@ -27,16 +25,37 @@ public class DevelopmentController {
     private final DevQualityRuleMapper qualityRuleMapper;
     private final DevQualityTaskMapper qualityTaskMapper;
     private final DevScheduleTaskMapper scheduleTaskMapper;
+    private final DevScheduleExecutionLogMapper scheduleLogMapper;
+    private final DevHdfsFileMapper hdfsFileMapper;
+    private final DevUdfMapper udfMapper;
+    private final DevScriptVersionMapper scriptVersionMapper;
+    private final DevFileWatcherMapper fileWatcherMapper;
+    private final DevScriptExecutionLogMapper scriptLogMapper;
+    private final DevQualityScoreHistoryMapper qualityScoreHistoryMapper;
 
     public DevelopmentController(DevProjectMapper projectMapper, DevWorkflowMapper workflowMapper,
                                  DevScriptMapper scriptMapper, DevQualityRuleMapper qualityRuleMapper,
-                                 DevQualityTaskMapper qualityTaskMapper, DevScheduleTaskMapper scheduleTaskMapper) {
+                                 DevQualityTaskMapper qualityTaskMapper, DevScheduleTaskMapper scheduleTaskMapper,
+                                 DevScheduleExecutionLogMapper scheduleLogMapper,
+                                 DevHdfsFileMapper hdfsFileMapper,
+                                 DevUdfMapper udfMapper,
+                                 DevScriptVersionMapper scriptVersionMapper,
+                                 DevFileWatcherMapper fileWatcherMapper,
+                                 DevScriptExecutionLogMapper scriptLogMapper,
+                                 DevQualityScoreHistoryMapper qualityScoreHistoryMapper) {
         this.projectMapper = projectMapper;
         this.workflowMapper = workflowMapper;
         this.scriptMapper = scriptMapper;
         this.qualityRuleMapper = qualityRuleMapper;
         this.qualityTaskMapper = qualityTaskMapper;
         this.scheduleTaskMapper = scheduleTaskMapper;
+        this.scheduleLogMapper = scheduleLogMapper;
+        this.hdfsFileMapper = hdfsFileMapper;
+        this.udfMapper = udfMapper;
+        this.scriptVersionMapper = scriptVersionMapper;
+        this.fileWatcherMapper = fileWatcherMapper;
+        this.scriptLogMapper = scriptLogMapper;
+        this.qualityScoreHistoryMapper = qualityScoreHistoryMapper;
     }
 
     private Long tid() { return SecurityUtils.getCurrentTenantId(); }
@@ -44,6 +63,14 @@ public class DevelopmentController {
     @GetMapping("/project/list")
     public Result<List<DevProject>> projectList() {
         return Result.ok(projectMapper.selectList(new LambdaQueryWrapper<DevProject>().eq(DevProject::getTenantId, tid())));
+    }
+
+    @GetMapping("/project/page")
+    public Result<PageResult<DevProject>> projectPage(@RequestParam(defaultValue = "1") int page,
+                                                       @RequestParam(defaultValue = "10") int limit) {
+        Page<DevProject> p = projectMapper.selectPage(new Page<>(page, limit),
+                new LambdaQueryWrapper<DevProject>().eq(DevProject::getTenantId, tid()).orderByDesc(DevProject::getCreateTime));
+        return Result.ok(PageResult.of(p.getTotal(), p.getCurrent(), p.getSize(), p.getRecords()));
     }
 
     @PostMapping("/project")
@@ -243,6 +270,17 @@ public class DevelopmentController {
         return Result.ok();
     }
 
+    @GetMapping("/quality/score-history")
+    public Result<PageResult<DevQualityScoreHistory>> scoreHistory(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long taskId) {
+        LambdaQueryWrapper<DevQualityScoreHistory> qw = new LambdaQueryWrapper<>();
+        if (taskId != null) qw.eq(DevQualityScoreHistory::getTaskId, taskId);
+        qw.orderByDesc(DevQualityScoreHistory::getCheckTime);
+        Page<DevQualityScoreHistory> p = qualityScoreHistoryMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
     @GetMapping("/quality/overview")
     public Result<Map<String, Object>> qualityOverview() {
         Long tid = tid();
@@ -304,5 +342,201 @@ public class DevelopmentController {
     public Result<Void> deleteSchedule(@PathVariable Long id) {
         scheduleTaskMapper.deleteById(id);
         return Result.ok();
+    }
+
+    @GetMapping("/schedule/logs")
+    public Result<List<DevScheduleExecutionLog>> scheduleLogs(@RequestParam(required = false) Long taskId) {
+        LambdaQueryWrapper<DevScheduleExecutionLog> qw = new LambdaQueryWrapper<DevScheduleExecutionLog>()
+                .eq(DevScheduleExecutionLog::getTenantId, tid());
+        if (taskId != null) qw.eq(DevScheduleExecutionLog::getTaskId, taskId);
+        qw.orderByDesc(DevScheduleExecutionLog::getCreateTime);
+        return Result.ok(scheduleLogMapper.selectList(qw));
+    }
+
+    // ---------- HDFS文件管理 ----------
+    @GetMapping("/hdfs/page")
+    public Result<PageResult<DevHdfsFile>> hdfsPage(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String fileName,
+            @RequestParam(required = false) String filePath) {
+        LambdaQueryWrapper<DevHdfsFile> qw = new LambdaQueryWrapper<DevHdfsFile>().eq(DevHdfsFile::getTenantId, tid());
+        if (StringUtils.hasText(fileName)) qw.like(DevHdfsFile::getFileName, fileName);
+        if (StringUtils.hasText(filePath)) qw.like(DevHdfsFile::getFilePath, filePath);
+        qw.orderByDesc(DevHdfsFile::getCreateTime);
+        Page<DevHdfsFile> p = hdfsFileMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
+    @PostMapping("/hdfs")
+    public Result<Void> createHdfs(@RequestBody DevHdfsFile e) {
+        e.setTenantId(tid());
+        e.setCreateBy(SecurityUtils.getCurrentUsername());
+        e.setCreateTime(LocalDateTime.now());
+        e.setUpdateTime(LocalDateTime.now());
+        e.setIsDir(e.getIsDir() != null ? e.getIsDir() : 0);
+        hdfsFileMapper.insert(e);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/hdfs/{id}")
+    public Result<Void> deleteHdfs(@PathVariable Long id) {
+        hdfsFileMapper.deleteById(id);
+        return Result.ok();
+    }
+
+    // ---------- UDF函数管理 ----------
+    @GetMapping("/udf/page")
+    public Result<PageResult<DevUdf>> udfPage(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String udfName,
+            @RequestParam(required = false) String udfType) {
+        LambdaQueryWrapper<DevUdf> qw = new LambdaQueryWrapper<DevUdf>().eq(DevUdf::getTenantId, tid());
+        if (StringUtils.hasText(udfName)) qw.like(DevUdf::getUdfName, udfName);
+        if (StringUtils.hasText(udfType)) qw.eq(DevUdf::getUdfType, udfType);
+        qw.orderByDesc(DevUdf::getCreateTime);
+        Page<DevUdf> p = udfMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
+    @PostMapping("/udf")
+    public Result<Void> createUdf(@RequestBody DevUdf e) {
+        e.setTenantId(tid());
+        e.setCreateBy(SecurityUtils.getCurrentUsername());
+        e.setCreateTime(LocalDateTime.now());
+        e.setUpdateTime(LocalDateTime.now());
+        e.setStatus(e.getStatus() != null ? e.getStatus() : "DRAFT");
+        udfMapper.insert(e);
+        return Result.ok();
+    }
+
+    @PutMapping("/udf/{id}")
+    public Result<Void> updateUdf(@PathVariable Long id, @RequestBody DevUdf e) {
+        e.setId(id);
+        e.setUpdateTime(LocalDateTime.now());
+        udfMapper.updateById(e);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/udf/{id}")
+    public Result<Void> deleteUdf(@PathVariable Long id) {
+        udfMapper.deleteById(id);
+        return Result.ok();
+    }
+
+    // ---------- 脚本版本管理 ----------
+    @GetMapping("/script/{scriptId}/versions")
+    public Result<List<DevScriptVersion>> scriptVersions(@PathVariable Long scriptId) {
+        return Result.ok(scriptVersionMapper.selectList(
+                new LambdaQueryWrapper<DevScriptVersion>()
+                        .eq(DevScriptVersion::getScriptId, scriptId)
+                        .orderByDesc(DevScriptVersion::getVersionNum)));
+    }
+
+    @PostMapping("/script/{scriptId}/version")
+    public Result<Void> createScriptVersion(@PathVariable Long scriptId, @RequestBody DevScriptVersion e) {
+        e.setScriptId(scriptId);
+        e.setCreateBy(SecurityUtils.getCurrentUsername());
+        e.setCreateTime(LocalDateTime.now());
+        // auto-increment version
+        Integer maxVer = 0;
+        List<DevScriptVersion> existing = scriptVersionMapper.selectList(
+                new LambdaQueryWrapper<DevScriptVersion>().eq(DevScriptVersion::getScriptId, scriptId));
+        if (!existing.isEmpty()) {
+            maxVer = existing.stream().mapToInt(v -> v.getVersionNum() != null ? v.getVersionNum() : 0).max().orElse(0);
+        }
+        e.setVersionNum(maxVer + 1);
+        scriptVersionMapper.insert(e);
+        return Result.ok();
+    }
+
+    // ---------- 文件监听器管理 ----------
+    @GetMapping("/watcher/page")
+    public Result<PageResult<DevFileWatcher>> watcherPage(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String name) {
+        LambdaQueryWrapper<DevFileWatcher> qw = new LambdaQueryWrapper<DevFileWatcher>().eq(DevFileWatcher::getTenantId, tid());
+        if (StringUtils.hasText(name)) qw.like(DevFileWatcher::getName, name);
+        qw.orderByDesc(DevFileWatcher::getCreateTime);
+        Page<DevFileWatcher> p = fileWatcherMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
+    @PostMapping("/watcher")
+    public Result<Void> createWatcher(@RequestBody DevFileWatcher e) {
+        e.setTenantId(tid());
+        e.setCreateBy(SecurityUtils.getCurrentUsername());
+        e.setCreateTime(LocalDateTime.now());
+        e.setUpdateTime(LocalDateTime.now());
+        e.setStatus(e.getStatus() != null ? e.getStatus() : "STOPPED");
+        fileWatcherMapper.insert(e);
+        return Result.ok();
+    }
+
+    @PutMapping("/watcher/{id}")
+    public Result<Void> updateWatcher(@PathVariable Long id, @RequestBody DevFileWatcher e) {
+        e.setId(id);
+        e.setUpdateTime(LocalDateTime.now());
+        fileWatcherMapper.updateById(e);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/watcher/{id}")
+    public Result<Void> deleteWatcher(@PathVariable Long id) {
+        fileWatcherMapper.deleteById(id);
+        return Result.ok();
+    }
+
+    // ---------- 脚本执行日志 ----------
+    @GetMapping("/script/execution-logs")
+    public Result<List<DevScriptExecutionLog>> scriptExecutionLogs(@RequestParam(required = false) Long scriptId) {
+        LambdaQueryWrapper<DevScriptExecutionLog> qw = new LambdaQueryWrapper<DevScriptExecutionLog>()
+                .eq(DevScriptExecutionLog::getTenantId, tid());
+        if (scriptId != null) qw.eq(DevScriptExecutionLog::getScriptId, scriptId);
+        qw.orderByDesc(DevScriptExecutionLog::getCreateTime);
+        return Result.ok(scriptLogMapper.selectList(qw));
+    }
+
+    @GetMapping("/monitor/stats")
+    public Result<Map<String, Object>> monitorStats() {
+        Long tid = tid();
+        Map<String, Object> m = new HashMap<>();
+        List<DevScheduleTask> tasks = scheduleTaskMapper.selectList(
+                new LambdaQueryWrapper<DevScheduleTask>().eq(DevScheduleTask::getTenantId, tid));
+        long running = tasks.stream().filter(t -> "RUNNING".equals(t.getStatus())).count();
+        long success = tasks.stream().filter(t -> "SUCCESS".equals(t.getStatus())).count();
+        long failed = tasks.stream().filter(t -> "FAILED".equals(t.getStatus())).count();
+        long pending = tasks.stream().filter(t -> "PENDING".equals(t.getStatus())).count();
+        m.put("running", running);
+        m.put("success", success);
+        m.put("failed", failed);
+        m.put("pending", pending);
+        m.put("total", tasks.size());
+        // Failed tasks
+        List<Map<String, Object>> failedTasks = tasks.stream()
+                .filter(t -> "FAILED".equals(t.getStatus()))
+                .map(t -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("name", t.getName());
+                    item.put("workflow", "default");
+                    item.put("time", t.getLastRunTime() != null ? t.getLastRunTime().toString() : "-");
+                    item.put("error", "执行失败");
+                    return item;
+                })
+                .collect(Collectors.toList());
+        m.put("failedTasks", failedTasks);
+        // Running tasks
+        List<Map<String, Object>> runningTasks = tasks.stream()
+                .filter(t -> "RUNNING".equals(t.getStatus()))
+                .map(t -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("name", t.getName());
+                    item.put("progress", new Random().nextInt(100));
+                    item.put("status", "RUNNING");
+                    item.put("startTime", t.getLastRunTime() != null ? t.getLastRunTime().toString() : "-");
+                    return item;
+                })
+                .collect(Collectors.toList());
+        m.put("runningTasks", runningTasks);
+        return Result.ok(m);
     }
 }

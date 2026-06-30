@@ -454,6 +454,65 @@ CREATE TABLE IF NOT EXISTS dev_schedule_task (
     deleted TINYINT DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS dev_hdfs_file (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    file_path VARCHAR(512),
+    file_name VARCHAR(256),
+    is_dir TINYINT DEFAULT 0,
+    file_size BIGINT DEFAULT 0,
+    content_type VARCHAR(128),
+    parent_path VARCHAR(512),
+    create_by VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS dev_udf (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    udf_name VARCHAR(128) NOT NULL,
+    udf_type VARCHAR(32),
+    owner VARCHAR(64),
+    class_name VARCHAR(256),
+    jar_path VARCHAR(512),
+    create_sql CLOB,
+    description VARCHAR(512),
+    status TINYINT DEFAULT 0,
+    create_by VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS dev_script_execution_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    script_id BIGINT,
+    tenant_id BIGINT NOT NULL,
+    status VARCHAR(32),
+    output CLOB,
+    error_log CLOB,
+    exit_code INT,
+    duration_ms BIGINT,
+    trigger_by VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS dev_schedule_execution_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_id BIGINT,
+    task_type VARCHAR(32),
+    tenant_id BIGINT NOT NULL,
+    status VARCHAR(32),
+    output CLOB,
+    error_log CLOB,
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    duration_ms BIGINT,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ========== 数据服务扩展 ==========
 CREATE TABLE IF NOT EXISTS svc_service_unit (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -588,4 +647,198 @@ CREATE TABLE IF NOT EXISTS infra_cluster (
     status VARCHAR(32) DEFAULT 'NORMAL',
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted TINYINT DEFAULT 0
+);
+
+-- ========== 补充缺失表 ==========
+
+CREATE TABLE IF NOT EXISTS agg_dataflow_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    dataflow_id BIGINT DEFAULT 0,
+    run_id VARCHAR(64),
+    log_level VARCHAR(16),
+    message CLOB,
+    record_count BIGINT DEFAULT 0,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS asset_favorite (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    user_id BIGINT,
+    asset_table_id BIGINT,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS asset_follow (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    user_id BIGINT,
+    asset_table_id BIGINT,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS asset_tag (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    tag_name VARCHAR(128) NOT NULL,
+    tag_type VARCHAR(32),
+    tag_color VARCHAR(32),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS asset_tag_relation (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    asset_table_id BIGINT,
+    tag_id BIGINT,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS dev_file_watcher (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    watch_directory VARCHAR(512),
+    file_name_pattern VARCHAR(256),
+    target_workflow_id BIGINT,
+    status VARCHAR(32) DEFAULT 'STOPPED',
+    create_by VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS dev_quality_score_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_id BIGINT,
+    score DECIMAL(5,2),
+    issue_count INT DEFAULT 0,
+    check_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS dev_script_version (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    script_id BIGINT NOT NULL,
+    version_num INT DEFAULT 1,
+    content CLOB,
+    change_note VARCHAR(512),
+    create_by VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS gov_business_domain (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    layer_id BIGINT,
+    parent_id BIGINT DEFAULT 0,
+    domain_name VARCHAR(128) NOT NULL,
+    domain_code VARCHAR(64),
+    description VARCHAR(512),
+    sort_order INT DEFAULT 0,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS gov_composite_indicator (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    indicator_code VARCHAR(64),
+    indicator_name VARCHAR(128) NOT NULL,
+    expression VARCHAR(512),
+    indicator_ids VARCHAR(512),
+    unit VARCHAR(64),
+    description VARCHAR(512),
+    status VARCHAR(32) DEFAULT 'DRAFT',
+    create_by VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS gov_cross_domain_metadata (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    source_name VARCHAR(128),
+    source_type VARCHAR(32),
+    export_format VARCHAR(32),
+    metadata_json CLOB,
+    sync_status VARCHAR(32) DEFAULT 'PENDING',
+    version VARCHAR(32),
+    create_by VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS infra_resource_group (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    group_name VARCHAR(128) NOT NULL,
+    resource_type VARCHAR(64),
+    resource_key VARCHAR(256),
+    description VARCHAR(512),
+    max_cores INT DEFAULT 0,
+    max_memory_gb DECIMAL(10,2) DEFAULT 0,
+    status VARCHAR(32) DEFAULT 'NORMAL',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS meta_collector_task (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    task_name VARCHAR(128) NOT NULL,
+    datasource_id BIGINT,
+    collect_type VARCHAR(32),
+    target_pattern VARCHAR(512),
+    cron_expr VARCHAR(64),
+    trigger_on_change TINYINT DEFAULT 0,
+    status VARCHAR(32) DEFAULT 'STOPPED',
+    last_run_time TIMESTAMP,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS meta_collector_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_id BIGINT,
+    status VARCHAR(32),
+    table_count INT DEFAULT 0,
+    field_count INT DEFAULT 0,
+    error_log CLOB,
+    duration_ms BIGINT DEFAULT 0,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS storage_quota (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    datasource_id BIGINT,
+    database_name VARCHAR(128),
+    max_size_gb DECIMAL(12,2) DEFAULT 0,
+    current_usage_gb DECIMAL(12,2) DEFAULT 0,
+    alert_threshold_pct INT DEFAULT 80,
+    status VARCHAR(32) DEFAULT 'NORMAL',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS sys_config (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    config_key VARCHAR(128) NOT NULL,
+    config_value CLOB,
+    description VARCHAR(512),
+    env VARCHAR(32) DEFAULT 'DEV',
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_activity_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    user_id BIGINT,
+    username VARCHAR(64),
+    activity_type VARCHAR(64),
+    target_desc VARCHAR(256),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

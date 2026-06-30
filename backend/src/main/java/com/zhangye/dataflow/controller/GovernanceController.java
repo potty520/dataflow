@@ -32,6 +32,8 @@ public class GovernanceController {
     private final GovAtomicIndicatorMapper atomicMapper;
     private final GovBusinessLimitMapper limitMapper;
     private final GovDerivedIndicatorMapper derivedMapper;
+    private final GovBusinessDomainMapper domainMapper;
+    private final GovCompositeIndicatorMapper compositeIndicatorMapper;
     private final GovProxyNodeMapper proxyNodeMapper;
     private final OperLogService operLogService;
 
@@ -40,6 +42,8 @@ public class GovernanceController {
                                 GovWarehouseCatalogMapper whCatalogMapper, GovModelTableMapper modelTableMapper,
                                 GovStatPeriodMapper statPeriodMapper, GovAtomicIndicatorMapper atomicMapper,
                                 GovBusinessLimitMapper limitMapper, GovDerivedIndicatorMapper derivedMapper,
+                                GovBusinessDomainMapper domainMapper,
+                                GovCompositeIndicatorMapper compositeIndicatorMapper,
                                 GovProxyNodeMapper proxyNodeMapper, OperLogService operLogService) {
         this.catalogMapper = catalogMapper;
         this.codeSetMapper = codeSetMapper;
@@ -51,6 +55,8 @@ public class GovernanceController {
         this.atomicMapper = atomicMapper;
         this.limitMapper = limitMapper;
         this.derivedMapper = derivedMapper;
+        this.domainMapper = domainMapper;
+        this.compositeIndicatorMapper = compositeIndicatorMapper;
         this.proxyNodeMapper = proxyNodeMapper;
         this.operLogService = operLogService;
     }
@@ -456,16 +462,108 @@ public class GovernanceController {
         return Result.ok();
     }
 
+    // ----- 业务域管理 -----
+    @GetMapping("/domain/page")
+    public Result<PageResult<GovBusinessDomain>> domainPage(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String domainName) {
+        LambdaQueryWrapper<GovBusinessDomain> qw = new LambdaQueryWrapper<>();
+        qw.eq(GovBusinessDomain::getTenantId, SecurityUtils.getCurrentTenantId());
+        if (StringUtils.hasText(domainName)) qw.like(GovBusinessDomain::getDomainName, domainName);
+        qw.orderByAsc(GovBusinessDomain::getSortOrder);
+        Page<GovBusinessDomain> p = domainMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
+    @PostMapping("/domain")
+    public Result<Void> createDomain(@RequestBody GovBusinessDomain e) {
+        e.setTenantId(SecurityUtils.getCurrentTenantId());
+        e.setCreateTime(LocalDateTime.now());
+        domainMapper.insert(e);
+        return Result.ok();
+    }
+
+    @PutMapping("/domain/{id}")
+    public Result<Void> updateDomain(@PathVariable Long id, @RequestBody GovBusinessDomain e) {
+        e.setId(id);
+        domainMapper.updateById(e);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/domain/{id}")
+    public Result<Void> deleteDomain(@PathVariable Long id) {
+        domainMapper.deleteById(id);
+        return Result.ok();
+    }
+
+    // ----- 复合指标管理 -----
+    @GetMapping("/composite/page")
+    public Result<PageResult<GovCompositeIndicator>> compositePage(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String indicatorName) {
+        LambdaQueryWrapper<GovCompositeIndicator> qw = new LambdaQueryWrapper<>();
+        qw.eq(GovCompositeIndicator::getTenantId, SecurityUtils.getCurrentTenantId());
+        if (StringUtils.hasText(indicatorName)) qw.like(GovCompositeIndicator::getIndicatorName, indicatorName);
+        qw.orderByDesc(GovCompositeIndicator::getCreateTime);
+        Page<GovCompositeIndicator> p = compositeIndicatorMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
+    @PostMapping("/composite")
+    public Result<Void> createComposite(@RequestBody GovCompositeIndicator e) {
+        e.setTenantId(SecurityUtils.getCurrentTenantId());
+        e.setCreateBy(SecurityUtils.getCurrentUsername());
+        e.setCreateTime(LocalDateTime.now());
+        e.setUpdateTime(LocalDateTime.now());
+        e.setStatus(e.getStatus() != null ? e.getStatus() : "DRAFT");
+        compositeIndicatorMapper.insert(e);
+        return Result.ok();
+    }
+
+    @PutMapping("/composite/{id}")
+    public Result<Void> updateComposite(@PathVariable Long id, @RequestBody GovCompositeIndicator e) {
+        e.setId(id);
+        e.setUpdateTime(LocalDateTime.now());
+        compositeIndicatorMapper.updateById(e);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/composite/{id}")
+    public Result<Void> deleteComposite(@PathVariable Long id) {
+        compositeIndicatorMapper.deleteById(id);
+        return Result.ok();
+    }
+
     @GetMapping("/monitor/stats")
     public Result<Map<String, Object>> monitorStats() {
         Long tid = SecurityUtils.getCurrentTenantId();
         Map<String, Object> stats = new HashMap<>();
+        stats.put("totalStandards", catalogMapper.selectCount(new LambdaQueryWrapper<GovStandardCatalog>()
+                .eq(GovStandardCatalog::getTenantId, tid)));
+        stats.put("totalModels", modelTableMapper.selectCount(new LambdaQueryWrapper<GovModelTable>().eq(GovModelTable::getTenantId, tid)));
+        stats.put("totalIndicators", atomicMapper.selectCount(new LambdaQueryWrapper<GovAtomicIndicator>().eq(GovAtomicIndicator::getTenantId, tid))
+                + derivedMapper.selectCount(new LambdaQueryWrapper<GovDerivedIndicator>().eq(GovDerivedIndicator::getTenantId, tid)));
+        stats.put("totalProxyNodes", proxyNodeMapper.selectCount(new LambdaQueryWrapper<GovProxyNode>().eq(GovProxyNode::getTenantId, tid)));
+        stats.put("activeProxyNodes", proxyNodeMapper.selectCount(new LambdaQueryWrapper<GovProxyNode>()
+                .eq(GovProxyNode::getTenantId, tid).eq(GovProxyNode::getStatus, "RUNNING")));
         stats.put("codeSetCount", codeSetMapper.selectCount(tenantQw()));
         stats.put("wordCount", wordMapper.selectCount(new LambdaQueryWrapper<GovWord>().eq(GovWord::getTenantId, tid)));
         stats.put("modelCount", modelTableMapper.selectCount(new LambdaQueryWrapper<GovModelTable>().eq(GovModelTable::getTenantId, tid)));
         stats.put("derivedCount", derivedMapper.selectCount(new LambdaQueryWrapper<GovDerivedIndicator>().eq(GovDerivedIndicator::getTenantId, tid)));
-        stats.put("proxyRunning", proxyNodeMapper.selectCount(new LambdaQueryWrapper<GovProxyNode>()
-                .eq(GovProxyNode::getTenantId, tid).eq(GovProxyNode::getStatus, "RUNNING")));
+        stats.put("atomicCount", atomicMapper.selectCount(new LambdaQueryWrapper<GovAtomicIndicator>().eq(GovAtomicIndicator::getTenantId, tid)));
+        stats.put("limitCount", limitMapper.selectCount(new LambdaQueryWrapper<GovBusinessLimit>().eq(GovBusinessLimit::getTenantId, tid)));
+        stats.put("periodCount", statPeriodMapper.selectCount(new LambdaQueryWrapper<GovStatPeriod>().eq(GovStatPeriod::getTenantId, tid)));
+        // Recent changes - use recent models as changelog
+        List<GovModelTable> recentModels = modelTableMapper.selectList(
+                new LambdaQueryWrapper<GovModelTable>().eq(GovModelTable::getTenantId, tid)
+                        .orderByDesc(GovModelTable::getUpdateTime).last("limit 10"));
+        List<Map<String, Object>> recentChanges = recentModels.stream().map(m -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("time", m.getUpdateTime() != null ? m.getUpdateTime().toString() : "-");
+            item.put("detail", "模型「" + m.getTableEn() + "」已更新");
+            return item;
+        }).collect(Collectors.toList());
+        stats.put("recentChanges", recentChanges);
         return Result.ok(stats);
     }
 

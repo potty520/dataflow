@@ -11,9 +11,12 @@ public class DevScript {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long tenantId;
+    private Long projectId;
     private String name;
     private String scriptType;
+    private Long datasourceId;
     private String content;
+    private String description;
     private String status;
     private LocalDateTime lastRunTime;
     private String createBy;

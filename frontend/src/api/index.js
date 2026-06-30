@@ -52,6 +52,8 @@ export const createDataflow = (data) => request.post('/aggregation/dataflow', da
 export const updateDataflow = (id, data) => request.put(`/aggregation/dataflow/${id}`, data)
 export const deleteDataflow = (id) => request.delete(`/aggregation/dataflow/${id}`)
 export const executeDataflow = (id) => request.post(`/aggregation/dataflow/${id}/execute`)
+export const backfillDataflow = (id) => request.post(`/aggregation/dataflow/${id}/backfill`)
+export const testDatasource = (id) => request.post(`/aggregation/datasource/${id}/test`)
 
 export const monitorStats = () => request.get('/aggregation/monitor/stats')
 
@@ -167,6 +169,8 @@ export const svcRateLimitPage = (params) => request.get('/service/ratelimit/page
 export const createSvcRateLimit = (data) => request.post('/service/ratelimit', data)
 export const deleteSvcRateLimit = (id) => request.delete(`/service/ratelimit/${id}`)
 export const svcMonitorStats = () => request.get('/service/monitor/stats')
+export const svcCallStats = (range) => request.get('/service/monitor/call-stats', { params: { range } })
+export const getCallLogs = (params) => request.get('/service/monitor/call-logs', { params })
 
 // 数据资产
 export const assetOverview = () => request.get('/asset/overview')
@@ -177,6 +181,18 @@ export const markKeyAsset = (id, isKey) => request.post(`/asset/table/${id}/mark
 export const deleteAssetTable = (id) => request.delete(`/asset/table/${id}`)
 export const assetLineage = () => request.get('/asset/lineage')
 export const assetMonitorStats = () => request.get('/asset/monitor/stats')
+
+// 治理监控
+export const govMonitorStats = () => request.get('/governance/monitor/stats')
+
+// 开发监控
+export const devMonitorStats = () => request.get('/development/monitor/stats')
+export const devScheduleLogs = (params) => request.get('/development/schedule/logs', { params })
+
+// 基础设施监控
+export const resourceMonitor = () => request.get('/infrastructure/monitor')
+export const getInfraStats = () => request.get('/infrastructure/monitor/stats')
+export const getHostMetrics = () => request.get('/infrastructure/monitor/host-metrics')
 
 // 基础支撑
 export const infraHostPage = (params) => request.get('/infrastructure/host/page', { params })
@@ -191,3 +207,66 @@ export const infraClusterPage = (params) => request.get('/infrastructure/cluster
 export const createInfraCluster = (data) => request.post('/infrastructure/cluster', data)
 export const deleteInfraCluster = (id) => request.delete(`/infrastructure/cluster/${id}`)
 export const infraDashboard = () => request.get('/infrastructure/dashboard')
+
+// 资源组管理
+export const resourceGroupPage = (params) => request.get('/infrastructure/resource-group/page', { params })
+export const createResourceGroup = (data) => request.post('/infrastructure/resource-group', data)
+export const updateResourceGroup = (id, data) => request.put(`/infrastructure/resource-group/${id}`, data)
+export const deleteResourceGroup = (id) => request.delete(`/infrastructure/resource-group/${id}`)
+
+// 存储配额管理
+export const storageQuotaPage = (params) => request.get('/infrastructure/storage-quota/page', { params })
+export const createStorageQuota = (data) => request.post('/infrastructure/storage-quota', data)
+export const updateStorageQuota = (id, data) => request.put(`/infrastructure/storage-quota/${id}`, data)
+export const deleteStorageQuota = (id) => request.delete(`/infrastructure/storage-quota/${id}`)
+
+// UDF函数管理
+export const devUdfPage = (params) => request.get('/development/udf/page', { params })
+export const createDevUdf = (data) => request.post('/development/udf', data)
+export const updateDevUdf = (id, data) => request.put(`/development/udf/${id}`, data)
+export const deleteDevUdf = (id) => request.delete(`/development/udf/${id}`)
+
+// HDFS文件管理
+export const hdfsList = (path) => request.get('/development/hdfs/list', { params: { path } })
+export const hdfsMkdir = (data) => request.post('/development/hdfs/mkdir', data)
+export const hdfsDelete = (path) => request.delete('/development/hdfs/delete', { params: { path } })
+export const hdfsDownload = (path) => request.get('/development/hdfs/download', { params: { path }, responseType: 'blob' })
+export const hdfsPreview = (path) => request.get('/development/hdfs/preview', { params: { path } })
+
+// 跨域数据管理
+export const govCrossDomainPage = (params) => request.get('/governance/cross-domain/metadata/page', { params })
+export const govCrossDomainExport = (data) => request.post('/governance/cross-domain/metadata/export', data)
+export const govCrossDomainCollect = (data) => request.post('/governance/cross-domain/metadata/collect', data)
+export const govCrossDomainSyncStats = () => request.get('/governance/cross-domain/sync/stats')
+
+// 治理扩展
+export const govCollectorPage = (params) => request.get('/governance/collector/page', { params })
+export const createGovCollector = (data) => request.post('/governance/collector', data)
+export const executeGovCollector = (id) => request.post(`/governance/collector/${id}/execute`)
+export const deleteGovCollector = (id) => request.delete(`/governance/collector/${id}`)
+
+// 元数据采集器别名（兼容不同命名）
+export const metaCollectorPage = govCollectorPage
+export const createMetaCollector = createGovCollector
+export const updateMetaCollector = (id, data) => request.put(`/governance/collector/${id}`, data)
+export const deleteMetaCollector = deleteGovCollector
+export const runMetaCollector = executeGovCollector
+export const metaCollectorLogs = (params) => request.get('/metadata/collector/log/page', { params })
+export const govDomainTree = () => request.get('/governance/domain/tree')
+export const createGovDomain = (data) => request.post('/governance/domain', data)
+export const deleteGovDomain = (id) => request.delete(`/governance/domain/${id}`)
+export const govDomainList = (params) => request.get('/governance/domain/page', { params })
+export const updateGovDomain = (id, data) => request.put(`/governance/domain/${id}`, data)
+export const sortGovDomain = (data) => request.put('/governance/domain/sort', data)
+
+// 系统配置
+export const configList = () => request.get('/platform/config')
+export const configUpdateValue = (key, value) => request.put(`/platform/config/${key}`, { configValue: value })
+
+// API 相关辅助
+export const apiCall = (id, params) => request.get(`/service/api/${id}/call`, { params })
+export const apiDoc = (id) => request.get(`/service/api/${id}/doc`)
+export const apiParams = (id) => request.get(`/service/api/${id}/params`)
+
+// DDL 生成
+export const generateDdl = (id) => request.post(`/governance/model/${id}/generate-ddl`)

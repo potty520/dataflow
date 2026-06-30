@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8088
   servlet:
     encoding:
       charset: UTF-8
@@ -17,6 +17,17 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
     default-property-inclusion: non_null
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6380}
+    timeout: 3000ms
+    lettuce:
+      pool:
+        max-active: 16
+        max-idle: 8
+        min-idle: 4
+  cache:
+    type: redis
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
@@ -65,9 +76,9 @@ spring:
       on-profile: mysql
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/dataflow?useUnicode=true&characterEncoding=utf-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
+    url: jdbc:mysql://103.236.96.82:13306/dataflow?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&characterSetResults=utf8
+    username: remote
+    password: ToCAt69Aidc16I1KvkQo2YWMlUl01U0o
   sql:
     init:
       mode: never

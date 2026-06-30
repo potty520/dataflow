@@ -54,7 +54,7 @@ public class SecurityConfig {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeRequests()
-                .antMatchers("/api/auth/**", "/h2-console/**").permitAll()
+                .antMatchers("/api/auth/**", "/api/portal/login", "/api/portal/register", "/api/service/call/**", "/h2-console/**").permitAll()
                 .anyRequest().authenticated()
                 .and()
                 .headers().frameOptions().disable()

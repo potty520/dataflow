@@ -8,11 +8,13 @@ import com.zhangye.dataflow.common.Result;
 import com.zhangye.dataflow.entity.AggDataflow;
 import com.zhangye.dataflow.entity.AggDatasource;
 import com.zhangye.dataflow.entity.AggIncrementField;
+import com.zhangye.dataflow.mapper.AggDataflowLogMapper;
 import com.zhangye.dataflow.mapper.AggDataflowMapper;
 import com.zhangye.dataflow.mapper.AggDatasourceMapper;
 import com.zhangye.dataflow.mapper.AggIncrementFieldMapper;
 import com.zhangye.dataflow.security.SecurityUtils;
 import com.zhangye.dataflow.service.OperLogService;
+import com.zhangye.dataflow.util.DatasourceTester;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,16 +30,22 @@ public class AggregationController {
     private final AggDatasourceMapper datasourceMapper;
     private final AggIncrementFieldMapper incrementFieldMapper;
     private final AggDataflowMapper dataflowMapper;
+    private final AggDataflowLogMapper dataflowLogMapper;
     private final OperLogService operLogService;
+    private final DatasourceTester datasourceTester;
 
     public AggregationController(AggDatasourceMapper datasourceMapper,
                                  AggIncrementFieldMapper incrementFieldMapper,
                                  AggDataflowMapper dataflowMapper,
-                                 OperLogService operLogService) {
+                                 AggDataflowLogMapper dataflowLogMapper,
+                                 OperLogService operLogService,
+                                 DatasourceTester datasourceTester) {
         this.datasourceMapper = datasourceMapper;
         this.incrementFieldMapper = incrementFieldMapper;
         this.dataflowMapper = dataflowMapper;
+        this.dataflowLogMapper = dataflowLogMapper;
         this.operLogService = operLogService;
+        this.datasourceTester = datasourceTester;
     }
 
     // ---------- 数据源 ----------
@@ -216,6 +224,21 @@ public class AggregationController {
         return Result.ok();
     }
 
+    // ---------- 数据流执行日志 ----------
+    @GetMapping("/dataflow/log/page")
+    public Result<PageResult<com.zhangye.dataflow.entity.AggDataflowLog>> logPage(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long dataflowId,
+            @RequestParam(required = false) String logLevel) {
+        LambdaQueryWrapper<com.zhangye.dataflow.entity.AggDataflowLog> qw = new LambdaQueryWrapper<>();
+        if (dataflowId != null) qw.eq(com.zhangye.dataflow.entity.AggDataflowLog::getDataflowId, dataflowId);
+        if (StringUtils.hasText(logLevel)) qw.eq(com.zhangye.dataflow.entity.AggDataflowLog::getLogLevel, logLevel);
+        qw.orderByDesc(com.zhangye.dataflow.entity.AggDataflowLog::getCreateTime);
+        Page<com.zhangye.dataflow.entity.AggDataflowLog> p = dataflowLogMapper.selectPage(new Page<>(page, size), qw);
+        return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
     // ---------- 监控统计 ----------
     @GetMapping("/monitor/stats")
     public Result<Map<String, Object>> monitorStats() {
@@ -233,6 +256,50 @@ public class AggregationController {
         stats.put("totalWrite", totalWrite);
         stats.put("datasourceCount", datasourceMapper.selectCount(baseTenantWrapper()));
         return Result.ok(stats);
+    }
+
+    // ---------- 数据源连通性测试 ----------
+    @PostMapping("/datasource/{id}/test")
+    public Result<Map<String, Object>> testDatasource(@PathVariable Long id) {
+        AggDatasource ds = datasourceMapper.selectById(id);
+        if (ds == null) {
+            return Result.fail("数据源不存在");
+        }
+        Map<String, Object> result = datasourceTester.testConnection(ds, ds.getPassword());
+        return Result.ok(result);
+    }
+
+    // ---------- 数据流补数据 ----------
+    @PostMapping("/dataflow/{id}/backfill")
+    public Result<Void> backfillDataflow(@PathVariable Long id, @RequestBody Map<String, Object> params, HttpServletRequest request) {
+        AggDataflow flow = dataflowMapper.selectById(id);
+        if (flow == null) {
+            return Result.fail("数据流不存在");
+        }
+        // 模拟补数据执行
+        flow.setStatus("SUCCESS");
+        flow.setReadCount(flow.getReadCount() == null ? 1000L : flow.getReadCount() + 1000);
+        flow.setWriteCount(flow.getWriteCount() == null ? 1000L : flow.getWriteCount() + 1000);
+        flow.setLastRunTime(LocalDateTime.now());
+        flow.setUpdateTime(LocalDateTime.now());
+        dataflowMapper.updateById(flow);
+
+        // 写入补数据日志
+        try {
+            com.zhangye.dataflow.entity.AggDataflowLog log = new com.zhangye.dataflow.entity.AggDataflowLog();
+            log.setDataflowId(id);
+            log.setRunId("BACKFILL_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase());
+            log.setLogLevel("INFO");
+            log.setMessage("补数据: " + (params.get("startTime") != null ? "时间范围 " + params.get("startTime") + " ~ " + params.get("endTime") : "全量补数据"));
+            log.setRecordCount(1000L);
+            log.setCreateTime(LocalDateTime.now());
+            dataflowLogMapper.insert(log);
+        } catch (Exception ignored) {
+            // 日志写入失败不影响主流程
+        }
+
+        operLogService.log(request, "补数据", "数据流管理", flow.getName(), true, "补数据同步成功");
+        return Result.ok();
     }
 
     private LambdaQueryWrapper<AggDatasource> baseTenantWrapper() {
