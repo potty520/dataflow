@@ -1,0 +1,92 @@
+# ========================================
+# dataflow 平台外部依赖 - Docker Compose
+# ========================================
+version: '3.8'
+
+services:
+  # === Elasticsearch - 全文搜索 + 元数据检索 ===
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: dataflow-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      retries: 5
+    mem_limit: 512m
+
+  # === Kafka + Zookeeper - 实时流处理 ===
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: dataflow-zk
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    mem_limit: 256m
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: dataflow-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    mem_limit: 512m
+
+  # === Redis - 缓存 / 限流 / 会话 / 配置热更新 ===
+  redis:
+    image: redis:7-alpine
+    container_name: dataflow-redis
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+    mem_limit: 192m
+
+  # === SMTP 邮件测试服务器 (Mailpit) ===
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: dataflow-mailpit
+    ports:
+      - "1025:1025"    # SMTP
+      - "8025:8025"    # Web UI
+    mem_limit: 64m
+
+  # === MinIO - S3兼容对象存储 (替代HDFS开发环境) ===
+  minio:
+    image: minio/minio:latest
+    container_name: dataflow-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123456
+    ports:
+      - "9000:9000"    # API
+      - "9001:9001"    # Console
+    volumes:
+      - minio_data:/data
+    mem_limit: 256m
+
+volumes:
+  es_data:
+  minio_data:
+  redis_data:
