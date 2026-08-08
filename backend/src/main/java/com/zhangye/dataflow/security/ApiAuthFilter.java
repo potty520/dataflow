@@ -29,7 +29,14 @@ public class ApiAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        if (!path.startsWith("/api/service/call/") && !path.startsWith("/api/service/api/") || !path.contains("/call")) {
+        boolean apiCallPath = (path.startsWith("/api/service/call/") || path.startsWith("/api/service/api/")) && path.contains("/call");
+        if (!apiCallPath) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        String authorization = request.getHeader("Authorization");
+        if (authorization != null && authorization.startsWith("Bearer ")) {
             chain.doFilter(request, response);
             return;
         }

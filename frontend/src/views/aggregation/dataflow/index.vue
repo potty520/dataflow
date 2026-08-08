@@ -4,6 +4,7 @@ import { dataflowPage, createDataflow, updateDataflow, deleteDataflow, executeDa
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const statusMap = { NOT_STARTED: '未开始', RUNNING: '运行中', SUCCESS: '成功', FAILED: '失败', WAITING: '等待执行' }
+const statusTypeMap = { NOT_STARTED: 'info', RUNNING: 'primary', SUCCESS: 'success', FAILED: 'danger', WAITING: 'warning' }
 const loading = ref(false)
 const tableData = ref([])
 const total = ref(0)
@@ -81,7 +82,11 @@ onMounted(() => { loadSources(); loadData() })
       <el-table-column prop="sourceName" label="数据源" />
       <el-table-column prop="targetName" label="目标源" />
       <el-table-column prop="status" label="状态">
-        <template #default="{ row }">{{ statusMap[row.status] || row.status }}</template>
+        <template #default="{ row }">
+          <el-tag :type="statusTypeMap[row.status] || 'info'" size="small">
+            {{ statusMap[row.status] || row.status }}
+          </el-tag>
+        </template>
       </el-table-column>
       <el-table-column prop="readCount" label="读取条数" width="100" />
       <el-table-column prop="writeCount" label="写入条数" width="100" />

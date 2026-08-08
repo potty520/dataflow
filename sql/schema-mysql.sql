@@ -81,6 +81,29 @@ CREATE TABLE `agg_dataflow` (
 -- Table structure for table `agg_dataflow_log`
 --
 
+DROP TABLE IF EXISTS `agg_migration_mapping`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `agg_migration_mapping` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL,
+  `name` varchar(128) NOT NULL,
+  `source_table_id` bigint NOT NULL,
+  `target_table_id` bigint NOT NULL,
+  `write_mode` varchar(32) DEFAULT 'insert',
+  `fault_tolerance` int DEFAULT '0',
+  `pre_sql` longtext,
+  `field_mapping` longtext,
+  `remark` varchar(512) DEFAULT NULL,
+  `status` varchar(32) DEFAULT 'DRAFT',
+  `create_by` varchar(64) DEFAULT NULL,
+  `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` tinyint DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 DROP TABLE IF EXISTS `agg_dataflow_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
@@ -985,6 +1008,59 @@ CREATE TABLE `infra_cluster` (
   `deleted` tinyint DEFAULT '0',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `infra_repository`
+--
+
+DROP TABLE IF EXISTS `infra_repository`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `infra_repository` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL,
+  `component_type` varchar(64) DEFAULT NULL,
+  `package_name` varchar(128) NOT NULL,
+  `version` varchar(64) DEFAULT NULL,
+  `file_path` varchar(512) DEFAULT NULL,
+  `package_size_mb` decimal(12,2) DEFAULT '0.00',
+  `checksum` varchar(128) DEFAULT NULL,
+  `compatible_os` varchar(128) DEFAULT NULL,
+  `status` varchar(32) DEFAULT 'READY',
+  `remark` varchar(512) DEFAULT NULL,
+  `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` tinyint DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `infra_alert`
+--
+
+DROP TABLE IF EXISTS `infra_alert`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `infra_alert` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL,
+  `alert_name` varchar(128) NOT NULL,
+  `alert_level` varchar(32) DEFAULT NULL,
+  `alert_type` varchar(64) DEFAULT NULL,
+  `target_type` varchar(64) DEFAULT NULL,
+  `target_name` varchar(128) DEFAULT NULL,
+  `rule_expr` varchar(512) DEFAULT NULL,
+  `message` varchar(1024) DEFAULT NULL,
+  `status` varchar(32) DEFAULT 'ACTIVE',
+  `handle_suggestion` varchar(1024) DEFAULT NULL,
+  `last_trigger_time` timestamp NULL DEFAULT NULL,
+  `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` tinyint DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

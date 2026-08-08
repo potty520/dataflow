@@ -11,6 +11,13 @@ const query = reactive({ page: 1, size: 10, name: '' })
 const dialogVisible = ref(false)
 const form = ref({})
 const isEdit = ref(false)
+const statusMeta = {
+  NOT_STARTED: { label: '未开始', type: 'info' },
+  WAITING: { label: '等待执行', type: 'warning' },
+  RUNNING: { label: '运行中', type: 'primary' },
+  SUCCESS: { label: '成功', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' }
+}
 
 async function loadData() {
   loading.value = true
@@ -69,7 +76,13 @@ onMounted(() => { loadSources(); loadData() })
     <el-table :data="tableData" v-loading="loading" border>
       <el-table-column prop="name" label="任务名称" />
       <el-table-column prop="syncType" label="同步类型" width="100" />
-      <el-table-column prop="status" label="状态" width="100" />
+      <el-table-column prop="status" label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+            {{ statusMeta[row.status]?.label || row.status || '未知' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="tableTotal" label="表总数" width="90" />
       <el-table-column prop="successCount" label="成功" width="80" />
       <el-table-column prop="failCount" label="失败" width="80" />

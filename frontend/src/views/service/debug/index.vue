@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { apiPage, apiParams, apiCall, apiDoc } from '../../../api'
 import { ElMessage } from 'element-plus'
 
@@ -11,6 +11,17 @@ const response = ref('')
 const curlCommand = ref('')
 const loading = ref(false)
 const docText = ref('')
+const searchText = ref('')
+
+const filteredApis = computed(() => {
+  const keyword = searchText.value.trim().toLowerCase()
+  if (!keyword) return apis.value
+  return apis.value.filter(api => {
+    const name = api.apiName || ''
+    const path = api.requestPath || api.path || ''
+    return name.toLowerCase().includes(keyword) || path.toLowerCase().includes(keyword)
+  })
+})
 
 async function loadApis() {
   const res = await apiPage({ page: 1, size: 100, apiName: '' })
@@ -77,14 +88,14 @@ onMounted(loadApis)
         <el-card header="已发布API" shadow="never">
           <el-input v-model="searchText" placeholder="搜索API" size="small" clearable style="margin-bottom:10px" />
           <div class="api-list">
-            <div v-for="api in apis" :key="api.id"
+            <div v-for="api in filteredApis" :key="api.id"
               :class="['api-item', { active: selectedApi?.id === api.id }]"
               @click="selectApi(api)">
               <span class="api-method">{{ api.requestMethod }}</span>
               <span class="api-name">{{ api.apiName }}</span>
             </div>
           </div>
-          <el-empty v-if="!apis.length" description="无已发布API" />
+          <el-empty v-if="!filteredApis.length" description="无已发布API" />
         </el-card>
       </el-col>
 

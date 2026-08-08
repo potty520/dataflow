@@ -9,6 +9,12 @@ const query = reactive({ page: 1, size: 10 })
 const dialogVisible = ref(false)
 const form = ref({})
 const isEdit = ref(false)
+const statusMeta = {
+  ENABLED: { label: '启用', type: 'success' },
+  DISABLED: { label: '禁用', type: 'info' },
+  NORMAL: { label: '正常', type: 'success' },
+  WARNING: { label: '告警', type: 'warning' }
+}
 
 async function loadData() {
   const res = await resourceGroupPage(query)
@@ -65,7 +71,7 @@ onMounted(loadData)
       <el-table-column prop="description" label="描述" show-overflow-tooltip />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'">{{ row.status === 'ENABLED' ? '启用' : '禁用' }}</el-tag>
+          <el-tag :type="statusMeta[row.status]?.type || 'info'">{{ statusMeta[row.status]?.label || row.status || '未知' }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="160">

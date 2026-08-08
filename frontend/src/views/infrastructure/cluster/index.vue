@@ -14,6 +14,15 @@ const clusterDialog = ref(false)
 const hostDialog = ref(false)
 const clusterForm = ref({ name: '', description: '', hostCount: 0 })
 const hostForm = ref({ hostname: '', ip: '', cpuCores: 8, memoryGb: 32, diskGb: 500 })
+const statusMeta = {
+  NORMAL: { label: '正常', type: 'success' },
+  ONLINE: { label: '在线', type: 'success' },
+  OFFLINE: { label: '离线', type: 'info' },
+  RUNNING: { label: '运行中', type: 'success' },
+  STOPPED: { label: '已停止', type: 'info' },
+  WARNING: { label: '告警', type: 'warning' },
+  FAILED: { label: '异常', type: 'danger' }
+}
 
 async function loadAll() {
   const [d, c, h] = await Promise.all([infraDashboard(), infraClusterPage(clusterQuery), infraHostPage(hostQuery)])
@@ -69,7 +78,13 @@ onMounted(loadAll)
           <el-table :data="clusters" border size="small">
             <el-table-column prop="name" label="名称" />
             <el-table-column prop="hostCount" label="节点数" width="80" />
-            <el-table-column prop="status" label="状态" width="90" />
+            <el-table-column prop="status" label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+                  {{ statusMeta[row.status]?.label || row.status || '未知' }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="80"><template #default="{ row }"><el-button link type="danger" @click="removeCluster(row)">删除</el-button></template></el-table-column>
           </el-table>
         </el-card>
@@ -80,7 +95,13 @@ onMounted(loadAll)
           <el-table :data="hosts" border size="small">
             <el-table-column prop="hostname" label="主机名" />
             <el-table-column prop="ip" label="IP" />
-            <el-table-column prop="status" label="状态" width="80" />
+            <el-table-column prop="status" label="状态" width="80">
+              <template #default="{ row }">
+                <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+                  {{ statusMeta[row.status]?.label || row.status || '未知' }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="80"><template #default="{ row }"><el-button link type="danger" @click="removeHost(row)">删除</el-button></template></el-table-column>
           </el-table>
         </el-card>

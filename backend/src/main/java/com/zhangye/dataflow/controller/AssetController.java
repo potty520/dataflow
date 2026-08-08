@@ -71,6 +71,22 @@ public class AssetController {
         return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
     }
 
+    @GetMapping("/table/list")
+    public Result<List<AssetTable>> tableList(
+            @RequestParam(required = false) Long datasourceId,
+            @RequestParam(required = false) String keyword) {
+        LambdaQueryWrapper<AssetTable> qw = new LambdaQueryWrapper<AssetTable>().eq(AssetTable::getTenantId, tid());
+        if (datasourceId != null) {
+            qw.eq(AssetTable::getDatasourceId, datasourceId);
+        }
+        if (StringUtils.hasText(keyword)) {
+            qw.and(w -> w.like(AssetTable::getTableEn, keyword).or().like(AssetTable::getTableCn, keyword)
+                    .or().like(AssetTable::getDatabaseName, keyword));
+        }
+        qw.orderByDesc(AssetTable::getCreateTime);
+        return Result.ok(tableMapper.selectList(qw));
+    }
+
     @GetMapping("/table/{id}")
     public Result<Map<String, Object>> tableDetail(@PathVariable Long id) {
         AssetTable table = tableMapper.selectById(id);

@@ -16,6 +16,11 @@ const query = reactive({ page: 1, size: 10, name: '' })
 const dialogVisible = ref(false)
 const form = ref({})
 const isEdit = ref(false)
+const statusMeta = {
+  0: { label: '草稿', type: 'info' },
+  1: { label: '已发布', type: 'success' },
+  2: { label: '已下线', type: 'warning' }
+}
 
 const loaders = {
   period: () => govPeriodPage(query),
@@ -112,7 +117,11 @@ onMounted(loadData)
       <el-table-column v-if="tab === 'derived'" prop="granularity" label="统计粒度" />
       <el-table-column v-if="tab === 'derived'" prop="dataTheme" label="数据主题" />
       <el-table-column v-if="tab !== 'limit'" prop="status" label="状态" width="80">
-        <template #default="{ row }">{{ {0:'草稿',1:'已发布',2:'已下线'}[row.status] || row.status }}</template>
+        <template #default="{ row }">
+          <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+            {{ statusMeta[row.status]?.label || row.status || '未知' }}
+          </el-tag>
+        </template>
       </el-table-column>
       <el-table-column label="操作" width="200">
         <template #default="{ row }">

@@ -11,6 +11,11 @@ const query = reactive({ page: 1, size: 10, udfName: '', udfType: '' })
 const dialogVisible = ref(false)
 const form = ref({})
 const isEdit = ref(false)
+const statusMeta = {
+  0: { label: '草稿', type: 'info' },
+  1: { label: '启用', type: 'success' },
+  2: { label: '停用', type: 'warning' }
+}
 
 async function loadData() {
   loading.value = true
@@ -67,7 +72,11 @@ onMounted(loadData)
       <el-table-column prop="owner" label="负责人" width="100" />
       <el-table-column prop="className" label="类名" />
       <el-table-column prop="status" label="状态" width="80">
-        <template #default="{ row }">{{ statusLabel(row.status) }}</template>
+        <template #default="{ row }">
+          <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+            {{ statusMeta[row.status]?.label || statusLabel(row.status) }}
+          </el-tag>
+        </template>
       </el-table-column>
       <el-table-column label="操作" width="180">
         <template #default="{ row }">
@@ -94,7 +103,5 @@ onMounted(loadData)
 </template>
 
 <style scoped>
-.page-container { padding: 16px; }
-.page-header { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
 .search-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
 </style>

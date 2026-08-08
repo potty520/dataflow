@@ -5,6 +5,7 @@ import com.zhangye.dataflow.entity.DevScript;
 import com.zhangye.dataflow.entity.DevScriptExecutionLog;
 import com.zhangye.dataflow.mapper.AggDatasourceMapper;
 import com.zhangye.dataflow.mapper.DevScriptExecutionLogMapper;
+import com.zhangye.dataflow.util.JdbcConnectionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -166,7 +167,7 @@ public class ScriptExecutionEngine {
         }
 
         try {
-            Connection conn = getConnection(ds);
+            Connection conn = JdbcConnectionFactory.getConnection(ds, ds.getPassword());
             try {
                 StringBuilder output = new StringBuilder();
                 String content = script.getContent();
@@ -212,48 +213,6 @@ public class ScriptExecutionEngine {
             log.error("JDBC execution failed", e);
             return new ExecutionResult(-1, "", getStackTrace(e));
         }
-    }
-
-    private Connection getConnection(AggDatasource ds) throws SQLException {
-        String dbType = ds.getDbType() != null ? ds.getDbType().toLowerCase() : "mysql";
-        String url;
-        String driver;
-
-        switch (dbType) {
-            case "mysql":
-                driver = "com.mysql.cj.jdbc.Driver";
-                url = "jdbc:mysql://" + ds.getHost() + ":" + ds.getPort() + "/" + ds.getDatabaseName()
-                        + "?useSSL=false&serverTimezone=Asia/Shanghai";
-                break;
-            case "postgresql":
-                driver = "org.postgresql.Driver";
-                url = "jdbc:postgresql://" + ds.getHost() + ":" + ds.getPort() + "/" + ds.getDatabaseName();
-                break;
-            case "h2":
-                driver = "org.h2.Driver";
-                url = "jdbc:h2:" + (ds.getFilePath() != null ? ds.getFilePath() : ds.getDatabaseName());
-                break;
-            case "oracle":
-                driver = "oracle.jdbc.OracleDriver";
-                url = "jdbc:oracle:thin:@" + ds.getHost() + ":" + ds.getPort() + ":" + ds.getDatabaseName();
-                break;
-            case "sqlserver":
-                driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-                url = "jdbc:sqlserver://" + ds.getHost() + ":" + ds.getPort() + ";databaseName=" + ds.getDatabaseName();
-                break;
-            default:
-                driver = "com.mysql.cj.jdbc.Driver";
-                url = "jdbc:mysql://" + ds.getHost() + ":" + ds.getPort() + "/" + ds.getDatabaseName()
-                        + "?useSSL=false&serverTimezone=Asia/Shanghai";
-        }
-
-        try {
-            Class.forName(driver);
-        } catch (ClassNotFoundException e) {
-            log.warn("Driver {} not found, using default", driver);
-        }
-
-        return DriverManager.getConnection(url, ds.getUsername(), ds.getPassword());
     }
 
     private String readStream(InputStream is) throws IOException {

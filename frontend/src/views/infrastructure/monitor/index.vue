@@ -1,303 +1,268 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
-import { resourceMonitor, hostPage, resourceGroupPage, createResourceGroup, updateResourceGroup, deleteResourceGroup,
-         storageQuotaPage, createStorageQuota, updateStorageQuota, deleteStorageQuota, infraDashboard } from '../../../api'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
+import { resourceMonitor } from '../../../api'
 
-const tabActive = ref('overview')
+const loading = ref(false)
 const monitorData = ref({})
 const hosts = ref([])
-const groups = ref([])
-const quotas = ref([])
-const total = reactive({ groups: 0, quotas: 0 })
-const query = reactive({ page: 1, size: 10 })
-const groupDialogVisible = ref(false)
-const groupForm = ref({})
-const groupIsEdit = ref(false)
-const quotaDialogVisible = ref(false)
-const quotaForm = ref({})
-const quotaIsEdit = ref(false)
-const cpuChartRef = ref(null)
-const memChartRef = ref(null)
-const diskChartRef = ref(null)
+const cpuRef = ref(null)
+const memRef = ref(null)
+const diskRef = ref(null)
+const charts = []
 
-async function loadMonitor() {
-  const res = await resourceMonitor()
-  monitorData.value = res.data
-  hosts.value = res.data.hosts || []
-  setTimeout(() => {
-    initGauges()
-  }, 100)
+const statusMeta = {
+  NORMAL: { label: '正常', type: 'success' },
+  WARNING: { label: '告警', type: 'warning' },
+  ONLINE: { label: '在线', type: 'success' },
+  OFFLINE: { label: '离线', type: 'info' }
 }
 
-function initGauges() {
-  if (cpuChartRef.value) {
-    const chart = echarts.init(cpuChartRef.value)
-    chart.setOption({
-      series: [{ type: 'gauge', min: 0, max: 100,
-        detail: { formatter: '{value}%' },
-        data: [{ value: monitorData.value.cpuUsagePercent || 0, name: 'CPU' }] }]
-    })
+function statusLabel(value) {
+  return statusMeta[value]?.label || value || '未知'
+}
+
+function statusType(value) {
+  return statusMeta[value]?.type || 'info'
+}
+
+function makeGauge(el, title, value, color) {
+  if (!el) return
+  const chart = echarts.getInstanceByDom(el) || echarts.init(el)
+  chart.setOption({
+    series: [{
+      type: 'gauge',
+      startAngle: 210,
+      endAngle: -30,
+      min: 0,
+      max: 100,
+      radius: '86%',
+      progress: { show: true, width: 12, itemStyle: { color } },
+      axisLine: { lineStyle: { width: 12, color: [[1, '#e7edf7']] } },
+      axisTick: { distance: -18, length: 5, lineStyle: { color: '#9aa8bb' } },
+      splitLine: { distance: -18, length: 10, lineStyle: { color: '#9aa8bb' } },
+      axisLabel: { distance: 14, color: '#6b7a90', fontSize: 10 },
+      pointer: { width: 4, length: '58%', itemStyle: { color } },
+      anchor: { show: true, size: 8, itemStyle: { color } },
+      title: { offsetCenter: [0, '58%'], color: '#5f6f85', fontSize: 12 },
+      detail: { valueAnimation: true, formatter: '{value}%', offsetCenter: [0, '30%'], fontSize: 24, fontWeight: 700, color: '#162235' },
+      data: [{ value, name: title }]
+    }]
+  })
+  charts.push(chart)
+}
+
+function renderCharts() {
+  charts.splice(0).forEach(chart => chart.dispose())
+  makeGauge(cpuRef.value, 'CPU', monitorData.value.cpuUsagePercent || 0, '#2563eb')
+  makeGauge(memRef.value, '内存', monitorData.value.memoryUsagePercent || 0, '#0f766e')
+  makeGauge(diskRef.value, '磁盘', monitorData.value.diskUsagePercent || 0, '#d97706')
+}
+
+async function loadData() {
+  loading.value = true
+  try {
+    const res = await resourceMonitor()
+    monitorData.value = res.data || {}
+    hosts.value = monitorData.value.hosts || []
+    requestAnimationFrame(renderCharts)
+  } finally {
+    loading.value = false
   }
-  if (memChartRef.value) {
-    const chart = echarts.init(memChartRef.value)
-    chart.setOption({
-      series: [{ type: 'gauge', min: 0, max: 100,
-        detail: { formatter: '{value}%' },
-        data: [{ value: monitorData.value.memoryUsagePercent || 0, name: '内存' }] }]
-    })
-  }
-  if (diskChartRef.value) {
-    const chart = echarts.init(diskChartRef.value)
-    chart.setOption({
-      series: [{ type: 'gauge', min: 0, max: 100,
-        detail: { formatter: '{value}%' },
-        data: [{ value: monitorData.value.diskUsagePercent || 0, name: '磁盘' }] }]
-    })
-  }
 }
 
-async function loadGroups() {
-  const res = await resourceGroupPage(query)
-  groups.value = res.data.records
-  total.groups = res.data.total
+function refreshCharts() {
+  renderCharts()
 }
 
-async function loadQuotas() {
-  const res = await storageQuotaPage(query)
-  quotas.value = res.data.records
-  total.quotas = res.data.total
+function usagePercent(host) {
+  if (!host.diskGb) return 0
+  return Math.round((host.diskUsed / host.diskGb) * 100)
 }
 
-function openGroupCreate() {
-  groupIsEdit.value = false
-  groupForm.value = { groupName: '', resourceType: 'YARN_QUEUE', resourceKey: '', description: '', maxCores: 0, maxMemoryGb: 0, status: 'ENABLED' }
-  groupDialogVisible.value = true
+function formatPercent(value) {
+  return `${value || 0}%`
 }
 
-function openGroupEdit(row) {
-  groupIsEdit.value = true
-  groupForm.value = { ...row }
-  groupDialogVisible.value = true
+function handleResize() {
+  charts.forEach(chart => chart.resize())
 }
 
-async function saveGroup() {
-  if (groupIsEdit.value) await updateResourceGroup(groupForm.value.id, groupForm.value)
-  else await createResourceGroup(groupForm.value)
-  ElMessage.success('保存成功')
-  groupDialogVisible.value = false
-  loadGroups()
-}
+onMounted(() => {
+  loadData()
+  window.addEventListener('resize', handleResize)
+})
 
-async function removeGroup(row) {
-  await ElMessageBox.confirm(`确认删除资源组「${row.groupName}」？`, '提示', { type: 'warning' })
-  await deleteResourceGroup(row.id)
-  ElMessage.success('删除成功')
-  loadGroups()
-}
-
-function openQuotaCreate() {
-  quotaIsEdit.value = false
-  quotaForm.value = { databaseName: '', maxSizeGb: 100, currentUsageGb: 0, alertThresholdPct: 80, status: 'NORMAL' }
-  quotaDialogVisible.value = true
-}
-
-function openQuotaEdit(row) {
-  quotaIsEdit.value = true
-  quotaForm.value = { ...row }
-  quotaDialogVisible.value = true
-}
-
-async function saveQuota() {
-  if (quotaIsEdit.value) await updateStorageQuota(quotaForm.value.id, quotaForm.value)
-  else await createStorageQuota(quotaForm.value)
-  ElMessage.success('保存成功')
-  quotaDialogVisible.value = false
-  loadQuotas()
-}
-
-async function removeQuota(row) {
-  await ElMessageBox.confirm(`确认删除存储配额「${row.databaseName}」？`, '提示', { type: 'warning' })
-  await deleteStorageQuota(row.id)
-  ElMessage.success('删除成功')
-  loadQuotas()
-}
-
-function onTabChange(tab) {
-  if (tab === 'groups') loadGroups()
-  if (tab === 'quotas') loadQuotas()
-}
-
-onMounted(loadMonitor)
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  charts.splice(0).forEach(chart => chart.dispose())
+})
 </script>
 
 <template>
   <div class="page-container">
-    <div class="page-header">资源监控</div>
+    <div class="page-top">
+      <div>
+        <p class="page-kicker">基础支撑 / 运行监控</p>
+        <h1 class="page-title">资源监控</h1>
+        <p class="page-subtitle">查看 CPU、内存、磁盘与主机利用率，定位资源压力。</p>
+      </div>
+      <div class="page-actions">
+        <el-button :loading="loading" @click="loadData">
+          <el-icon><Refresh /></el-icon>
+          <span>刷新</span>
+        </el-button>
+      </div>
+    </div>
 
-    <el-tabs v-model="tabActive" @tab-change="onTabChange">
-      <el-tab-pane label="总览" name="overview">
-        <!-- Gauges -->
-        <el-row :gutter="16" style="margin-bottom:24px">
-          <el-col :span="8">
-            <el-card><div ref="cpuChartRef" style="height:200px"></div></el-card>
-          </el-col>
-          <el-col :span="8">
-            <el-card><div ref="memChartRef" style="height:200px"></div></el-card>
-          </el-col>
-          <el-col :span="8">
-            <el-card><div ref="diskChartRef" style="height:200px"></div></el-card>
-          </el-col>
-        </el-row>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-label">CPU 总核数</div>
+        <div class="metric-value">{{ monitorData.cpuTotalCores || 0 }}</div>
+        <div class="metric-note">已分配 {{ monitorData.cpuUsedCores || 0 }} 核</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">内存总量</div>
+        <div class="metric-value">{{ monitorData.memoryTotalGb || 0 }} GB</div>
+        <div class="metric-note">已使用 {{ monitorData.memoryUsedGb || 0 }} GB</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">磁盘总量</div>
+        <div class="metric-value">{{ monitorData.diskTotalGb || 0 }} GB</div>
+        <div class="metric-note">已使用 {{ monitorData.diskUsedGb || 0 }} GB</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">主机数量</div>
+        <div class="metric-value">{{ monitorData.hostCount || 0 }}</div>
+        <div class="metric-note">在线 {{ monitorData.onlineHosts || 0 }} 台</div>
+      </div>
+    </div>
 
-        <!-- Stats cards -->
-        <el-row :gutter="16">
-          <el-col :span="6">
-            <el-card><div style="text-align:center">
-              <div style="color:#999;font-size:13px">CPU总核数</div>
-              <div style="font-size:28px;font-weight:bold;color:#1890ff">{{ monitorData.cpuTotalCores || 0 }}</div>
-              <div style="color:#999">已用 {{ monitorData.cpuUsedCores || 0 }} 核</div>
-            </div></el-card>
-          </el-col>
-          <el-col :span="6">
-            <el-card><div style="text-align:center">
-              <div style="color:#999;font-size:13px">内存总量</div>
-              <div style="font-size:28px;font-weight:bold;color:#52c41a">{{ monitorData.memoryTotalGb || 0 }} GB</div>
-              <div style="color:#999">已用 {{ monitorData.memoryUsedGb || 0 }} GB</div>
-            </div></el-card>
-          </el-col>
-          <el-col :span="6">
-            <el-card><div style="text-align:center">
-              <div style="color:#999;font-size:13px">磁盘总量</div>
-              <div style="font-size:28px;font-weight:bold;color:#fa8c16">{{ monitorData.diskTotalGb || 0 }} GB</div>
-              <div style="color:#999">已用 {{ monitorData.diskUsedGb || 0 }} GB</div>
-            </div></el-card>
-          </el-col>
-          <el-col :span="6">
-            <el-card><div style="text-align:center">
-              <div style="color:#999;font-size:13px">存储总量</div>
-              <div style="font-size:28px;font-weight:bold;color:#722ed1">{{ monitorData.storageTotalGb || 0 }} GB</div>
-              <div style="color:#999">已用 {{ monitorData.storageUsedGb || 0 }} GB</div>
-            </div></el-card>
-          </el-col>
-        </el-row>
+    <div class="overview-grid">
+      <el-card class="surface-card" shadow="never">
+        <template #header>资源仪表盘</template>
+        <div class="gauge-grid">
+          <div class="gauge-card"><div ref="cpuRef" class="gauge-box" /></div>
+          <div class="gauge-card"><div ref="memRef" class="gauge-box" /></div>
+          <div class="gauge-card"><div ref="diskRef" class="gauge-box" /></div>
+        </div>
+      </el-card>
 
-        <!-- Per-host disk bars -->
-        <el-card style="margin-top:24px">
-          <template #header>主机磁盘使用</template>
-          <div v-for="h in hosts" :key="h.hostname" style="margin-bottom:16px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-              <span>{{ h.hostname }} ({{ h.ip }})</span>
-              <span>{{ h.diskUsed || 0 }} / {{ h.diskGb || 0 }} GB</span>
-            </div>
-            <el-progress :percentage="h.diskGb ? Math.round(h.diskUsed / h.diskGb * 100) : 0" :status="(h.diskGb && h.diskUsed / h.diskGb > 0.8) ? 'exception' : ''" />
+      <el-card class="surface-card" shadow="never">
+        <template #header>
+          <div class="section-heading">
+            <span>快捷入口</span>
           </div>
-        </el-card>
-      </el-tab-pane>
-
-      <!-- 资源组管理 -->
-      <el-tab-pane label="资源组" name="groups">
-        <div style="margin-bottom:12px">
-          <el-button type="primary" @click="openGroupCreate">新增资源组</el-button>
+        </template>
+        <div class="shortcut-list">
+          <router-link class="shortcut-item" to="/infrastructure/host">主机管理</router-link>
+          <router-link class="shortcut-item" to="/infrastructure/resource-group">资源组</router-link>
+          <router-link class="shortcut-item" to="/infrastructure/storage-quota">存储配额</router-link>
+          <router-link class="shortcut-item" to="/infrastructure/repository">组件仓库</router-link>
+          <router-link class="shortcut-item" to="/infrastructure/config">服务配置</router-link>
+          <router-link class="shortcut-item" to="/infrastructure/alert">告警中心</router-link>
         </div>
-        <el-table :data="groups" border>
-          <el-table-column prop="groupName" label="组名称" />
-          <el-table-column prop="resourceType" label="类型" width="130" />
-          <el-table-column prop="resourceKey" label="资源Key" width="130" />
-          <el-table-column prop="maxCores" label="最大核数" width="100" />
-          <el-table-column prop="maxMemoryGb" label="最大内存(GB)" width="120" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'">{{ row.status }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="160">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openGroupEdit(row)">编辑</el-button>
-              <el-button link type="danger" @click="removeGroup(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
+      </el-card>
+    </div>
 
-      <!-- 存储配额 -->
-      <el-tab-pane label="存储配额" name="quotas">
-        <div style="margin-bottom:12px">
-          <el-button type="primary" @click="openQuotaCreate">新增配额</el-button>
+    <el-card class="surface-card" shadow="never">
+      <template #header>
+        <div class="section-heading">
+          <span>主机利用率</span>
+          <el-button link type="primary" @click="refreshCharts">重绘图表</el-button>
         </div>
-        <el-table :data="quotas" border>
-          <el-table-column prop="databaseName" label="数据库" />
-          <el-table-column prop="maxSizeGb" label="配额上限(GB)" width="130" />
-          <el-table-column prop="currentUsageGb" label="当前使用(GB)" width="130" />
-          <el-table-column label="使用率" width="200">
-            <template #default="{ row }">
-              <el-progress :percentage="row.maxSizeGb ? Math.round(row.currentUsageGb / row.maxSizeGb * 100) : 0"
-                           :status="(row.maxSizeGb && row.currentUsageGb / row.maxSizeGb * 100 > (row.alertThresholdPct || 80)) ? 'exception' : ''" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="alertThresholdPct" label="告警阈值(%)" width="120" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="row.status === 'WARNING' ? 'danger' : 'success'">{{ row.status }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="160">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openQuotaEdit(row)">编辑</el-button>
-              <el-button link type="danger" @click="removeQuota(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
-    </el-tabs>
-
-    <!-- 资源组弹窗 -->
-    <el-dialog v-model="groupDialogVisible" :title="groupIsEdit ? '编辑资源组' : '新增资源组'" width="500px">
-      <el-form label-width="100px">
-        <el-form-item label="组名称"><el-input v-model="groupForm.groupName" /></el-form-item>
-        <el-form-item label="资源类型">
-          <el-select v-model="groupForm.resourceType" style="width:100%">
-            <el-option label="YARN队列" value="YARN_QUEUE" />
-            <el-option label="K8S命名空间" value="K8S_NAMESPACE" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="资源Key"><el-input v-model="groupForm.resourceKey" /></el-form-item>
-        <el-form-item label="最大核数"><el-input-number v-model="groupForm.maxCores" :min="0" /></el-form-item>
-        <el-form-item label="最大内存(GB)"><el-input-number v-model="groupForm.maxMemoryGb" :min="0" :precision="1" /></el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="groupForm.status" style="width:100%">
-            <el-option label="启用" value="ENABLED" />
-            <el-option label="禁用" value="DISABLED" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="描述"><el-input v-model="groupForm.description" type="textarea" /></el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="groupDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveGroup">保存</el-button>
       </template>
-    </el-dialog>
-
-    <!-- 存储配额弹窗 -->
-    <el-dialog v-model="quotaDialogVisible" :title="quotaIsEdit ? '编辑存储配额' : '新增存储配额'" width="500px">
-      <el-form label-width="110px">
-        <el-form-item label="数据库名"><el-input v-model="quotaForm.databaseName" /></el-form-item>
-        <el-form-item label="配额上限(GB)"><el-input-number v-model="quotaForm.maxSizeGb" :min="1" /></el-form-item>
-        <el-form-item label="当前使用(GB)"><el-input-number v-model="quotaForm.currentUsageGb" :min="0" :precision="1" /></el-form-item>
-        <el-form-item label="告警阈值(%)"><el-input-number v-model="quotaForm.alertThresholdPct" :min="1" :max="100" /></el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="quotaForm.status" style="width:100%">
-            <el-option label="正常" value="NORMAL" />
-            <el-option label="告警" value="WARNING" />
-            <el-option label="超限" value="EXCEEDED" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="quotaDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveQuota">保存</el-button>
-      </template>
-    </el-dialog>
+      <div v-for="h in hosts" :key="h.hostname" class="host-item">
+        <div class="host-item-head">
+          <span>{{ h.hostname }} <span class="subtle">({{ h.ip }})</span></span>
+          <el-tag :type="statusType(h.status)" size="small">{{ statusLabel(h.status) }}</el-tag>
+        </div>
+        <div class="host-item-meta">
+          <span>磁盘 {{ h.diskUsed || 0 }} / {{ h.diskGb || 0 }} GB</span>
+          <span>{{ formatPercent(usagePercent(h)) }}</span>
+        </div>
+        <el-progress :percentage="usagePercent(h)" :status="usagePercent(h) > 80 ? 'exception' : ''" />
+      </div>
+    </el-card>
   </div>
 </template>
+
+<style scoped>
+.overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.9fr);
+  gap: 16px;
+}
+
+.gauge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gauge-card {
+  min-width: 0;
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+}
+
+.gauge-box {
+  width: 100%;
+  height: 220px;
+}
+
+.shortcut-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  color: var(--app-text);
+  font-weight: 600;
+}
+
+.host-item + .host-item {
+  margin-top: 16px;
+}
+
+.host-item-head,
+.host-item-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.host-item-head {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.host-item-meta {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--app-muted);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 1150px) {
+  .overview-grid,
+  .gauge-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

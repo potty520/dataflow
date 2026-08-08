@@ -250,6 +250,28 @@ public class GovernanceController {
         return Result.ok();
     }
 
+    @PostMapping("/model/preview-ddl")
+    @SuppressWarnings("unchecked")
+    public Result<Map<String, Object>> previewDdl(@RequestBody Map<String, Object> body) {
+        String tableEn = text(body.get("tableEn"));
+        if (!StringUtils.hasText(tableEn)) {
+            return Result.fail("英文表名不能为空");
+        }
+        String engine = StringUtils.hasText(text(body.get("engine"))) ? text(body.get("engine")).toLowerCase() : "hive";
+        String tableCn = text(body.get("tableCn"));
+        String layerCode = text(body.get("layerCode"));
+        List<Map<String, Object>> fields = body.get("fields") instanceof List ? (List<Map<String, Object>>) body.get("fields") : new java.util.ArrayList<Map<String, Object>>();
+        String ddl = buildPreviewDdl(engine, tableEn, tableCn, layerCode, fields);
+        Map<String, Object> data = new HashMap<>();
+        data.put("engine", engine);
+        data.put("tableEn", tableEn);
+        data.put("tableCn", tableCn);
+        data.put("layerCode", layerCode);
+        data.put("fieldCount", fields.size());
+        data.put("ddl", ddl);
+        return Result.ok(data);
+    }
+
     @PutMapping("/model/{id}")
     public Result<Void> updateModel(@PathVariable Long id, @RequestBody GovModelTable e) {
         e.setId(id);
@@ -466,13 +488,24 @@ public class GovernanceController {
     @GetMapping("/domain/page")
     public Result<PageResult<GovBusinessDomain>> domainPage(
             @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
-            @RequestParam(required = false) String domainName) {
+            @RequestParam(required = false) String domainName,
+            @RequestParam(required = false) Long layerId) {
         LambdaQueryWrapper<GovBusinessDomain> qw = new LambdaQueryWrapper<>();
         qw.eq(GovBusinessDomain::getTenantId, SecurityUtils.getCurrentTenantId());
+        if (layerId != null) qw.eq(GovBusinessDomain::getLayerId, layerId);
         if (StringUtils.hasText(domainName)) qw.like(GovBusinessDomain::getDomainName, domainName);
         qw.orderByAsc(GovBusinessDomain::getSortOrder);
         Page<GovBusinessDomain> p = domainMapper.selectPage(new Page<>(page, size), qw);
         return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
+    }
+
+    @GetMapping("/domain/tree")
+    public Result<List<GovBusinessDomain>> domainTree(@RequestParam(required = false) Long layerId) {
+        LambdaQueryWrapper<GovBusinessDomain> qw = new LambdaQueryWrapper<>();
+        qw.eq(GovBusinessDomain::getTenantId, SecurityUtils.getCurrentTenantId());
+        if (layerId != null) qw.eq(GovBusinessDomain::getLayerId, layerId);
+        qw.orderByAsc(GovBusinessDomain::getSortOrder);
+        return Result.ok(domainMapper.selectList(qw));
     }
 
     @PostMapping("/domain")
@@ -493,6 +526,18 @@ public class GovernanceController {
     @DeleteMapping("/domain/{id}")
     public Result<Void> deleteDomain(@PathVariable Long id) {
         domainMapper.deleteById(id);
+        return Result.ok();
+    }
+
+    @PutMapping("/domain/sort")
+    public Result<Void> sortDomain(@RequestBody List<GovBusinessDomain> updates) {
+        for (GovBusinessDomain item : updates) {
+            if (item.getId() == null) continue;
+            GovBusinessDomain update = new GovBusinessDomain();
+            update.setId(item.getId());
+            update.setSortOrder(item.getSortOrder());
+            domainMapper.updateById(update);
+        }
         return Result.ok();
     }
 
@@ -569,6 +614,148 @@ public class GovernanceController {
 
     private LambdaQueryWrapper<GovCodeSet> tenantQw() {
         return new LambdaQueryWrapper<GovCodeSet>().eq(GovCodeSet::getTenantId, SecurityUtils.getCurrentTenantId());
+    }
+
+    private String text(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
+
+    private String buildPreviewDdl(String engine, String tableEn, String tableCn, String layerCode, List<Map<String, Object>> fields) {
+        List<Map<String, Object>> actualFields = fields == null ? new java.util.ArrayList<Map<String, Object>>() : fields;
+        StringBuilder ddl = new StringBuilder();
+        ddl.append("-- engine: ").append(engine).append('\n');
+        if (StringUtils.hasText(layerCode)) {
+            ddl.append("-- layer: ").append(layerCode).append('\n');
+        }
+        if ("mysql".equalsIgnoreCase(engine)) {
+            ddl.append("CREATE TABLE IF NOT EXISTS `").append(tableEn).append("` (\n");
+        } else {
+            ddl.append("CREATE TABLE IF NOT EXISTS ").append(tableEn).append(" (\n");
+        }
+
+        List<String> columns = new java.util.ArrayList<>();
+        List<String> primaryKeys = new java.util.ArrayList<>();
+        String partitionColumn = null;
+        for (Map<String, Object> field : actualFields) {
+            String fieldEn = text(field.get("fieldEn"));
+            if (!StringUtils.hasText(fieldEn)) {
+                continue;
+            }
+            String dataType = text(field.get("dataType"));
+            if (!StringUtils.hasText(dataType)) {
+                dataType = "STRING";
+            }
+            String length = text(field.get("length"));
+            String precision = text(field.get("precision"));
+            boolean nullable = field.get("nullable") == null || Boolean.parseBoolean(String.valueOf(field.get("nullable")));
+            boolean isPk = field.get("isPk") != null && Boolean.parseBoolean(String.valueOf(field.get("isPk")));
+            boolean isPartition = field.get("isPartition") != null && Boolean.parseBoolean(String.valueOf(field.get("isPartition")));
+            String comment = escapeComment(text(field.get("comment")));
+            String defaultVal = escapeComment(text(field.get("defaultVal")));
+            String columnType = normalizeColumnType(engine, dataType, length, precision);
+            StringBuilder column = new StringBuilder();
+            if ("mysql".equalsIgnoreCase(engine)) {
+                column.append("  `").append(fieldEn).append("` ").append(columnType);
+            } else {
+                column.append("  ").append(fieldEn).append(" ").append(columnType);
+            }
+            if (!nullable) {
+                column.append(" NOT NULL");
+            }
+            if (StringUtils.hasText(defaultVal)) {
+                column.append(" DEFAULT '").append(defaultVal).append("'");
+            }
+            if (StringUtils.hasText(comment)) {
+                column.append(" COMMENT '").append(comment).append("'");
+            }
+            columns.add(column.toString());
+            if (isPk) {
+                primaryKeys.add(fieldEn);
+            }
+            if (isPartition && partitionColumn == null) {
+                partitionColumn = fieldEn;
+            }
+        }
+        if (columns.isEmpty()) {
+            columns.add("  id BIGINT");
+        }
+        ddl.append(String.join(",\n", columns));
+        if (!primaryKeys.isEmpty() && "mysql".equalsIgnoreCase(engine)) {
+            ddl.append(",\n  PRIMARY KEY (").append(String.join(", ", primaryKeys)).append(")");
+        }
+        ddl.append("\n)");
+        if (StringUtils.hasText(tableCn)) {
+            ddl.append(" COMMENT='").append(escapeComment(tableCn)).append("'");
+        }
+        if (StringUtils.hasText(partitionColumn) && !"mysql".equalsIgnoreCase(engine)) {
+            ddl.append("\nPARTITIONED BY (").append(partitionColumn).append(" STRING)");
+        }
+        if ("mysql".equalsIgnoreCase(engine)) {
+            ddl.append(" ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        } else {
+            ddl.append("\nSTORED AS PARQUET;");
+        }
+        return ddl.toString();
+    }
+
+    private String normalizeColumnType(String engine, String dataType, String length, String precision) {
+        String type = dataType.toUpperCase();
+        if ("MYSQL".equalsIgnoreCase(engine)) {
+            if ("STRING".equals(type) || "VARCHAR".equals(type) || "CHAR".equals(type)) {
+                return StringUtils.hasText(length) ? "VARCHAR(" + length + ")" : "VARCHAR(255)";
+            }
+            if ("INT".equals(type) || "INTEGER".equals(type)) {
+                return "INT";
+            }
+            if ("BIGINT".equals(type)) {
+                return "BIGINT";
+            }
+            if ("DOUBLE".equals(type) || "FLOAT".equals(type)) {
+                return "DOUBLE";
+            }
+            if ("DECIMAL".equals(type)) {
+                return StringUtils.hasText(precision) ? "DECIMAL(18," + precision + ")" : "DECIMAL(18,2)";
+            }
+            if ("DATE".equals(type)) {
+                return "DATE";
+            }
+            if ("TIMESTAMP".equals(type) || "DATETIME".equals(type)) {
+                return "DATETIME";
+            }
+            if ("BOOLEAN".equals(type) || "BOOL".equals(type)) {
+                return "TINYINT(1)";
+            }
+            return type;
+        }
+        if ("VARCHAR".equals(type) || "CHAR".equals(type)) {
+            return "STRING";
+        }
+        if ("INT".equals(type) || "INTEGER".equals(type)) {
+            return "INT";
+        }
+        if ("BIGINT".equals(type)) {
+            return "BIGINT";
+        }
+        if ("DOUBLE".equals(type) || "FLOAT".equals(type)) {
+            return "DOUBLE";
+        }
+        if ("DECIMAL".equals(type)) {
+            return StringUtils.hasText(precision) ? "DECIMAL(18," + precision + ")" : "DECIMAL(18,2)";
+        }
+        if ("DATE".equals(type)) {
+            return "DATE";
+        }
+        if ("TIMESTAMP".equals(type) || "DATETIME".equals(type)) {
+            return "TIMESTAMP";
+        }
+        if ("BOOLEAN".equals(type) || "BOOL".equals(type)) {
+            return "BOOLEAN";
+        }
+        return type;
+    }
+
+    private String escapeComment(String value) {
+        return value == null ? "" : value.replace("'", "''");
     }
 
     private List<GovStandardCatalog> buildCatalogTree(List<GovStandardCatalog> all, Long parentId) {

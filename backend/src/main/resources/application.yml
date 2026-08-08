@@ -76,9 +76,9 @@ spring:
       on-profile: mysql
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://103.236.96.82:13306/dataflow?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&characterSetResults=utf8
-    username: remote
-    password: ToCAt69Aidc16I1KvkQo2YWMlUl01U0o
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/dataflow?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&characterSetResults=utf8}
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:}
   sql:
     init:
       mode: never

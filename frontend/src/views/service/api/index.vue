@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { apiPage, createApi, updateApi, publishApi, offlineApi, deleteApi } from '../../../api'
+import { apiDoc, apiPage, createApi, updateApi, publishApi, offlineApi, deleteApi } from '../../../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const statusMap = { 0: '草稿', 1: '已发布', 2: '已下线' }
@@ -9,6 +9,8 @@ const tableData = ref([])
 const total = ref(0)
 const query = reactive({ page: 1, size: 10, apiName: '' })
 const dialogVisible = ref(false)
+const docVisible = ref(false)
+const docText = ref('')
 const form = ref({})
 const isEdit = ref(false)
 
@@ -50,6 +52,12 @@ async function remove(row) {
   loadData()
 }
 
+async function openDoc(row) {
+  const res = await apiDoc(row.id)
+  docText.value = res.data || ''
+  docVisible.value = true
+}
+
 onMounted(loadData)
 </script>
 
@@ -73,6 +81,7 @@ onMounted(loadData)
         <template #default="{ row }">
           <el-button link type="success" v-if="row.status !== 1" @click="publishApi(row.id).then(loadData)">发布</el-button>
           <el-button link type="warning" v-if="row.status === 1" @click="offlineApi(row.id).then(loadData)">下线</el-button>
+          <el-button link type="primary" @click="openDoc(row)">文档</el-button>
           <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
           <el-button link type="danger" :disabled="row.status === 1" @click="remove(row)">删除</el-button>
         </template>
@@ -94,5 +103,22 @@ onMounted(loadData)
         <el-button type="primary" @click="save">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="docVisible" title="API文档" size="520px">
+      <pre class="doc-preview">{{ docText }}</pre>
+    </el-drawer>
   </div>
 </template>
+
+<style scoped>
+.doc-preview {
+  margin: 0;
+  min-height: 360px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #dbeafe;
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+</style>

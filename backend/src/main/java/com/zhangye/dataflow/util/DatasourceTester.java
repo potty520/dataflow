@@ -3,9 +3,7 @@ package com.zhangye.dataflow.util;
 import com.zhangye.dataflow.entity.AggDatasource;
 import org.springframework.stereotype.Component;
 
-import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,8 +14,7 @@ public class DatasourceTester {
         Map<String, Object> result = new HashMap<>();
         long start = System.currentTimeMillis();
         try {
-            String url = buildJdbcUrl(ds);
-            try (Connection conn = DriverManager.getConnection(url, ds.getUsername(), plainPwd)) {
+            try (java.sql.Connection conn = JdbcConnectionFactory.getConnection(ds, plainPwd)) {
                 DatabaseMetaData meta = conn.getMetaData();
                 result.put("success", true);
                 result.put("engineVersion", meta.getDatabaseProductVersion());
@@ -32,35 +29,11 @@ public class DatasourceTester {
         return result;
     }
 
-    private String buildJdbcUrl(AggDatasource ds) {
-        String type = ds.getDbType().toUpperCase();
-        String host = ds.getHost();
-        String port = String.valueOf(ds.getPort());
-        String db = ds.getDatabaseName();
-
-        switch (type) {
-            case "MYSQL":
-                return "jdbc:mysql://" + host + ":" + port + "/" + db + "?useSSL=false&serverTimezone=Asia/Shanghai";
-            case "POSTGRESQL":
-            case "PG":
-                return "jdbc:postgresql://" + host + ":" + port + "/" + db;
-            case "ORACLE":
-                return "jdbc:oracle:thin:@" + host + ":" + port + ":" + db;
-            case "SQLSERVER":
-                return "jdbc:sqlserver://" + host + ":" + port + ";databaseName=" + db;
-            case "HIVE":
-                return "jdbc:hive2://" + host + ":" + port + "/" + db;
-            default:
-                return "jdbc:mysql://" + host + ":" + port + "/" + db;
-        }
-    }
-
     public Map<String, Object> getTableFields(AggDatasource ds, String plainPwd, String tableName) {
         Map<String, Object> result = new HashMap<>();
         result.put("tableName", tableName);
         try {
-            String url = buildJdbcUrl(ds);
-            try (Connection conn = DriverManager.getConnection(url, ds.getUsername(), plainPwd)) {
+            try (java.sql.Connection conn = JdbcConnectionFactory.getConnection(ds, plainPwd)) {
                 DatabaseMetaData meta = conn.getMetaData();
                 java.util.List<Map<String, String>> fields = new java.util.ArrayList<>();
                 try (java.sql.ResultSet rs = meta.getColumns(null, null, tableName, null)) {

@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { assetTablePage, assetTableDetail, markKeyAsset, assetLineage } from '../../../api'
 import { ElMessage } from 'element-plus'
 import LineageGraph from '../../../components/LineageGraph.vue'
@@ -13,6 +13,18 @@ const detail = ref({ table: {}, fields: [] })
 const lineage = ref({ nodes: [], edges: [] })
 const highlightId = ref(null)
 const graphRef = ref(null)
+
+const lineageStats = computed(() => {
+  const nodes = lineage.value.nodes || []
+  const edges = lineage.value.edges || []
+  const layers = new Set(nodes.map(item => item.layer || 'OTHER'))
+  return {
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+    keyAssetCount: nodes.filter(item => item.isKeyAsset === 1).length,
+    layerCount: layers.size
+  }
+})
 
 async function loadData() {
   loading.value = true
@@ -72,6 +84,12 @@ onMounted(() => { loadData(); loadLineage() })
           </div>
         </div>
       </template>
+      <div class="lineage-summary">
+        <div><span>资产节点</span><strong>{{ lineageStats.nodeCount }}</strong></div>
+        <div><span>血缘关系</span><strong>{{ lineageStats.edgeCount }}</strong></div>
+        <div><span>重点资产</span><strong>{{ lineageStats.keyAssetCount }}</strong></div>
+        <div><span>覆盖分层</span><strong>{{ lineageStats.layerCount }}</strong></div>
+      </div>
       <LineageGraph ref="graphRef" :graph="lineage" :highlight-id="highlightId" @node-click="onGraphNodeClick" />
     </el-card>
 
@@ -126,6 +144,33 @@ onMounted(() => { loadData(); loadLineage() })
 
 <style scoped>
 .topology-card { margin-bottom: 0; }
-.topology-card :deep(.el-card__body) { height: 480px; padding: 0; }
+.topology-card :deep(.el-card__body) { height: 520px; padding: 0; position: relative; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
+.lineage-summary {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(80px, 1fr));
+  gap: 8px;
+  max-width: 520px;
+}
+.lineage-summary div {
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,.92);
+}
+.lineage-summary span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+.lineage-summary strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+  color: var(--app-text);
+}
 </style>

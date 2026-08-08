@@ -55,6 +55,14 @@ export const executeDataflow = (id) => request.post(`/aggregation/dataflow/${id}
 export const backfillDataflow = (id) => request.post(`/aggregation/dataflow/${id}/backfill`)
 export const testDatasource = (id) => request.post(`/aggregation/datasource/${id}/test`)
 
+export const migrationMappingPage = (params) => request.get('/aggregation/migration/page', { params })
+export const migrationMappingDetail = (id) => request.get(`/aggregation/migration/${id}`)
+export const createMigrationMapping = (data) => request.post('/aggregation/migration', data)
+export const updateMigrationMapping = (id, data) => request.put(`/aggregation/migration/${id}`, data)
+export const deleteMigrationMapping = (id) => request.delete(`/aggregation/migration/${id}`)
+export const migrationMappingValidate = (id) => request.get(`/aggregation/migration/${id}/validate`)
+export const generateDataflowFromMapping = (id) => request.post(`/aggregation/migration/${id}/generate-dataflow`)
+
 export const monitorStats = () => request.get('/aggregation/monitor/stats')
 
 export const fullsyncPage = (params) => request.get('/aggregation/fullsync/page', { params })
@@ -101,6 +109,14 @@ export const govModelPage = (params) => request.get('/governance/model/page', { 
 export const createGovModel = (data) => request.post('/governance/model', data)
 export const updateGovModel = (id, data) => request.put(`/governance/model/${id}`, data)
 export const deleteGovModel = (id) => request.delete(`/governance/model/${id}`)
+export const govCleaningOverview = () => request.get('/governance/cleaning/overview')
+export const govCleaningPage = (params) => request.get('/governance/cleaning/page', { params })
+export const govCleaningTemplates = () => request.get('/governance/cleaning/templates')
+export const createGovCleaning = (data) => request.post('/governance/cleaning', data)
+export const updateGovCleaning = (id, data) => request.put(`/governance/cleaning/${id}`, data)
+export const deleteGovCleaning = (id) => request.delete(`/governance/cleaning/${id}`)
+export const govCleaningPreview = (id) => request.get(`/governance/cleaning/${id}/preview`)
+export const executeGovCleaning = (id) => request.post(`/governance/cleaning/${id}/execute`)
 export const govPeriodPage = (params) => request.get('/governance/period/page', { params })
 export const createGovPeriod = (data) => request.post('/governance/period', data)
 export const updateGovPeriod = (id, data) => request.put(`/governance/period/${id}`, data)
@@ -170,11 +186,12 @@ export const createSvcRateLimit = (data) => request.post('/service/ratelimit', d
 export const deleteSvcRateLimit = (id) => request.delete(`/service/ratelimit/${id}`)
 export const svcMonitorStats = () => request.get('/service/monitor/stats')
 export const svcCallStats = (range) => request.get('/service/monitor/call-stats', { params: { range } })
-export const getCallLogs = (params) => request.get('/service/monitor/call-logs', { params })
+export const getCallLogs = (params) => request.get('/service/call-log/page', { params })
 
 // 数据资产
 export const assetOverview = () => request.get('/asset/overview')
 export const assetTablePage = (params) => request.get('/asset/table/page', { params })
+export const assetTableList = (params) => request.get('/asset/table/list', { params })
 export const assetTableDetail = (id) => request.get(`/asset/table/${id}`)
 export const createAssetTable = (data) => request.post('/asset/table', data)
 export const markKeyAsset = (id, isKey) => request.post(`/asset/table/${id}/mark-key`, null, { params: { isKey } })
@@ -190,6 +207,7 @@ export const devMonitorStats = () => request.get('/development/monitor/stats')
 export const devScheduleLogs = (params) => request.get('/development/schedule/logs', { params })
 
 // 基础设施监控
+export const infraSupportOverview = () => request.get('/infrastructure/overview')
 export const resourceMonitor = () => request.get('/infrastructure/monitor')
 export const getInfraStats = () => request.get('/infrastructure/monitor/stats')
 export const getHostMetrics = () => request.get('/infrastructure/monitor/host-metrics')
@@ -197,16 +215,39 @@ export const getHostMetrics = () => request.get('/infrastructure/monitor/host-me
 // 基础支撑
 export const infraHostPage = (params) => request.get('/infrastructure/host/page', { params })
 export const createInfraHost = (data) => request.post('/infrastructure/host', data)
+export const updateInfraHost = (id, data) => request.put(`/infrastructure/host/${id}`, data)
+export const onlineInfraHost = (id) => request.post(`/infrastructure/host/${id}/online`)
+export const offlineInfraHost = (id) => request.post(`/infrastructure/host/${id}/offline`)
+export const batchHostStatus = (data) => request.post('/infrastructure/host/batch-status', data)
+export const batchDeleteHost = (data) => request.post('/infrastructure/host/batch-delete', data)
 export const deleteInfraHost = (id) => request.delete(`/infrastructure/host/${id}`)
+export const hostPage = infraHostPage
 export const infraComponentPage = (params) => request.get('/infrastructure/component/page', { params })
 export const createInfraComponent = (data) => request.post('/infrastructure/component', data)
+export const updateInfraComponent = (id, data) => request.put(`/infrastructure/component/${id}`, data)
 export const startInfraComponent = (id) => request.post(`/infrastructure/component/${id}/start`)
 export const stopInfraComponent = (id) => request.post(`/infrastructure/component/${id}/stop`)
+export const restartInfraComponent = (id) => request.post(`/infrastructure/component/${id}/restart`)
+export const batchComponentStatus = (data) => request.post('/infrastructure/component/batch-status', data)
 export const deleteInfraComponent = (id) => request.delete(`/infrastructure/component/${id}`)
 export const infraClusterPage = (params) => request.get('/infrastructure/cluster/page', { params })
 export const createInfraCluster = (data) => request.post('/infrastructure/cluster', data)
+export const updateInfraCluster = (id, data) => request.put(`/infrastructure/cluster/${id}`, data)
 export const deleteInfraCluster = (id) => request.delete(`/infrastructure/cluster/${id}`)
 export const infraDashboard = () => request.get('/infrastructure/dashboard')
+export const infraRepositoryPage = (params) => request.get('/infrastructure/repository/page', { params })
+export const createInfraRepository = (data) => request.post('/infrastructure/repository', data)
+export const updateInfraRepository = (id, data) => request.put(`/infrastructure/repository/${id}`, data)
+export const distributeInfraRepository = (id) => request.post(`/infrastructure/repository/${id}/distribute`)
+export const deleteInfraRepository = (id) => request.delete(`/infrastructure/repository/${id}`)
+export const infraAlertPage = (params) => request.get('/infrastructure/alert/page', { params })
+export const createInfraAlert = (data) => request.post('/infrastructure/alert', data)
+export const updateInfraAlert = (id, data) => request.put(`/infrastructure/alert/${id}`, data)
+export const ackInfraAlert = (id) => request.post(`/infrastructure/alert/${id}/ack`)
+export const recoverInfraAlert = (id) => request.post(`/infrastructure/alert/${id}/recover`)
+export const deleteInfraAlert = (id) => request.delete(`/infrastructure/alert/${id}`)
+export const infraConfigFiles = () => request.get('/infrastructure/config-files')
+export const updateInfraConfigFile = (key, data) => request.put('/infrastructure/config-files', data, { params: { key } })
 
 // 资源组管理
 export const resourceGroupPage = (params) => request.get('/infrastructure/resource-group/page', { params })
@@ -240,18 +281,18 @@ export const govCrossDomainCollect = (data) => request.post('/governance/cross-d
 export const govCrossDomainSyncStats = () => request.get('/governance/cross-domain/sync/stats')
 
 // 治理扩展
-export const govCollectorPage = (params) => request.get('/governance/collector/page', { params })
-export const createGovCollector = (data) => request.post('/governance/collector', data)
-export const executeGovCollector = (id) => request.post(`/governance/collector/${id}/execute`)
-export const deleteGovCollector = (id) => request.delete(`/governance/collector/${id}`)
+export const govCollectorPage = (params) => request.get('/metadata/collector/page', { params })
+export const createGovCollector = (data) => request.post('/metadata/collector', data)
+export const executeGovCollector = (id) => request.post(`/metadata/collector/${id}/run`)
+export const deleteGovCollector = (id) => request.delete(`/metadata/collector/${id}`)
 
 // 元数据采集器别名（兼容不同命名）
 export const metaCollectorPage = govCollectorPage
 export const createMetaCollector = createGovCollector
-export const updateMetaCollector = (id, data) => request.put(`/governance/collector/${id}`, data)
-export const deleteMetaCollector = deleteGovCollector
+export const updateMetaCollector = (id, data) => request.put(`/metadata/collector/${id}`, data)
+export const deleteMetaCollector = (id) => request.delete(`/metadata/collector/${id}`)
 export const runMetaCollector = executeGovCollector
-export const metaCollectorLogs = (params) => request.get('/metadata/collector/log/page', { params })
+export const metaCollectorLogs = (id) => request.get(`/metadata/collector/${id}/logs`)
 export const govDomainTree = () => request.get('/governance/domain/tree')
 export const createGovDomain = (data) => request.post('/governance/domain', data)
 export const deleteGovDomain = (id) => request.delete(`/governance/domain/${id}`)
@@ -261,7 +302,7 @@ export const sortGovDomain = (data) => request.put('/governance/domain/sort', da
 
 // 系统配置
 export const configList = () => request.get('/platform/config')
-export const configUpdateValue = (key, value) => request.put(`/platform/config/${key}`, { configValue: value })
+export const configUpdateValue = (key, body) => request.put(`/platform/config/${key}`, body)
 
 // API 相关辅助
 export const apiCall = (id, params) => request.get(`/service/api/${id}/call`, { params })
@@ -269,4 +310,4 @@ export const apiDoc = (id) => request.get(`/service/api/${id}/doc`)
 export const apiParams = (id) => request.get(`/service/api/${id}/params`)
 
 // DDL 生成
-export const generateDdl = (id) => request.post(`/governance/model/${id}/generate-ddl`)
+export const generateDdl = (data) => request.post('/governance/model/preview-ddl', data)

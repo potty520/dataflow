@@ -22,6 +22,13 @@ const logs = ref([])
 const form = ref({})
 const isEdit = ref(false)
 const datasources = ref([])
+const statusMeta = {
+  RUNNING: { label: '运行中', type: 'warning' },
+  IDLE: { label: '空闲', type: 'info' },
+  SUCCESS: { label: '成功', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' },
+  NOT_STARTED: { label: '未开始', type: 'info' }
+}
 
 async function loadData() {
   loading.value = true
@@ -110,7 +117,9 @@ onMounted(() => { loadData(); loadDs() })
       <el-table-column prop="cronExpr" label="调度表达式" width="120" />
       <el-table-column prop="status" label="状态" width="90">
         <template #default="{ row }">
-          <el-tag size="small" :type="row.status === 'RUNNING' ? 'warning' : 'info'">{{ row.status === 'RUNNING' ? '运行中' : '空闲' }}</el-tag>
+          <el-tag size="small" :type="statusMeta[row.status]?.type || 'info'">
+            {{ statusMeta[row.status]?.label || row.status || '未知' }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="lastRunTime" label="上次运行" width="160" />
@@ -161,7 +170,9 @@ onMounted(() => { loadData(); loadDs() })
       <el-table :data="logs" border size="small">
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.status === 'SUCCESS' ? 'success' : 'danger'">{{ row.status }}</el-tag>
+            <el-tag size="small" :type="statusMeta[row.status]?.type || 'info'">
+              {{ statusMeta[row.status]?.label || row.status || '未知' }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="tableCount" label="表数" width="60" />

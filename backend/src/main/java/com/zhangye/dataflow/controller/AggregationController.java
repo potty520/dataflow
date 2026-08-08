@@ -172,13 +172,14 @@ public class AggregationController {
         if (StringUtils.hasText(status)) {
             qw.eq(AggDataflow::getStatus, status);
         }
+        qw.orderByDesc(AggDataflow::getCreateTime);
         Page<AggDataflow> p = dataflowMapper.selectPage(new Page<>(page, size), qw);
         fillDataflowNames(p.getRecords());
         return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
     }
 
     @PostMapping("/dataflow")
-    public Result<Void> createDataflow(@RequestBody AggDataflow flow, HttpServletRequest request) {
+    public Result<Map<String, Object>> createDataflow(@RequestBody AggDataflow flow, HttpServletRequest request) {
         flow.setTenantId(SecurityUtils.getCurrentTenantId());
         flow.setCreateBy(SecurityUtils.getCurrentUsername());
         flow.setCreateTime(LocalDateTime.now());
@@ -188,7 +189,10 @@ public class AggregationController {
         lockDatasource(flow.getSourceId());
         lockDatasource(flow.getTargetId());
         operLogService.log(request, "新建数据流", "数据流管理", flow.getName(), true, null);
-        return Result.ok();
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", flow.getId());
+        result.put("name", flow.getName());
+        return Result.ok(result);
     }
 
     @PutMapping("/dataflow/{id}")

@@ -159,6 +159,25 @@ CREATE TABLE IF NOT EXISTS agg_dataflow (
 );
 
 -- 整库同步
+-- 数据迁移映射
+CREATE TABLE IF NOT EXISTS agg_migration_mapping (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    source_table_id BIGINT NOT NULL,
+    target_table_id BIGINT NOT NULL,
+    write_mode VARCHAR(32) DEFAULT 'insert',
+    fault_tolerance INT DEFAULT 0,
+    pre_sql CLOB,
+    field_mapping CLOB,
+    remark VARCHAR(512),
+    status VARCHAR(32) DEFAULT 'DRAFT',
+    create_by VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS agg_full_sync (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     tenant_id BIGINT NOT NULL,
@@ -646,6 +665,41 @@ CREATE TABLE IF NOT EXISTS infra_cluster (
     host_count INT DEFAULT 0,
     status VARCHAR(32) DEFAULT 'NORMAL',
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS infra_repository (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    component_type VARCHAR(64),
+    package_name VARCHAR(128) NOT NULL,
+    version VARCHAR(64),
+    file_path VARCHAR(512),
+    package_size_mb DECIMAL(12,2) DEFAULT 0,
+    checksum VARCHAR(128),
+    compatible_os VARCHAR(128),
+    status VARCHAR(32) DEFAULT 'READY',
+    remark VARCHAR(512),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS infra_alert (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    alert_name VARCHAR(128) NOT NULL,
+    alert_level VARCHAR(32),
+    alert_type VARCHAR(64),
+    target_type VARCHAR(64),
+    target_name VARCHAR(128),
+    rule_expr VARCHAR(512),
+    message VARCHAR(1024),
+    status VARCHAR(32) DEFAULT 'ACTIVE',
+    handle_suggestion VARCHAR(1024),
+    last_trigger_time TIMESTAMP,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted TINYINT DEFAULT 0
 );
 

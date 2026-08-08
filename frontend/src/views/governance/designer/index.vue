@@ -14,6 +14,7 @@ const fields = ref([])
 const ddlDialogVisible = ref(false)
 const ddlEngine = ref('hive')
 const ddlContent = ref('')
+const ddlMeta = ref({})
 
 let fieldId = 0
 
@@ -38,12 +39,17 @@ function removeField(index) {
 async function previewDdl() {
   if (!form.tableEn) { ElMessage.warning('请先输入英文表名'); return }
   try {
-    // We build a quick preview without saving first
-    const res = await generateDdl(0, { engine: ddlEngine.value })
-    ddlContent.value = generateLocalDdl()
+    const res = await generateDdl({
+      ...form,
+      engine: ddlEngine.value,
+      fields: fields.value
+    })
+    ddlContent.value = res.data?.ddl || generateLocalDdl()
+    ddlMeta.value = res.data || {}
     ddlDialogVisible.value = true
   } catch {
     ddlContent.value = generateLocalDdl()
+    ddlMeta.value = { engine: ddlEngine.value, fieldCount: fields.value.length }
     ddlDialogVisible.value = true
   }
 }
@@ -219,6 +225,11 @@ onMounted(loadOptions)
         <el-option label="MySQL" value="mysql" />
         <el-option label="Spark" value="spark" />
       </el-select>
+      <el-descriptions :column="3" border size="small" style="margin-bottom:12px">
+        <el-descriptions-item label="引擎">{{ ddlMeta.engine || ddlEngine }}</el-descriptions-item>
+        <el-descriptions-item label="表名">{{ ddlMeta.tableEn || form.tableEn }}</el-descriptions-item>
+        <el-descriptions-item label="字段数">{{ ddlMeta.fieldCount || fields.length }}</el-descriptions-item>
+      </el-descriptions>
       <pre style="background:#f5f5f5;padding:16px;border-radius:4px;overflow-x:auto;max-height:500px;font-family:monospace;font-size:13px">{{ ddlContent }}</pre>
       <template #footer>
         <el-button @click="ddlDialogVisible = false">关闭</el-button>

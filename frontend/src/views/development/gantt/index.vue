@@ -4,6 +4,13 @@ import { devScheduleLogs, devSchedulePage } from '../../../api'
 
 const loading = ref(false)
 const ganttItems = ref([])
+const statusMeta = {
+  SUCCESS: { label: '成功', type: 'success', color: '#67c23a' },
+  FAILED: { label: '失败', type: 'danger', color: '#f56c6c' },
+  RUNNING: { label: '运行中', type: 'primary', color: '#409eff' },
+  PENDING: { label: '等待中', type: 'info', color: '#909399' },
+  NOT_STARTED: { label: '未开始', type: 'info', color: '#909399' }
+}
 
 function formatDate(time) {
   if (!time) return '-'
@@ -32,10 +39,7 @@ const chartStart = computed(() => {
 function barStyle(item) {
   const offset = ((item.start.getTime() - chartStart.value) / totalDuration.value) * 100
   const width = (item.duration / totalDuration.value) * 100
-  let bg = '#67c23a'
-  if (item.status === 'FAILED') bg = '#f56c6c'
-  if (item.status === 'RUNNING') bg = '#409eff'
-  if (item.status === 'PENDING') bg = '#909399'
+  const bg = statusMeta[item.status]?.color || '#909399'
   return {
     left: offset + '%',
     width: Math.max(width, 2) + '%',
@@ -110,7 +114,9 @@ onMounted(buildGanttFromLogs)
         <el-table-column prop="name" label="节点" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'SUCCESS' ? 'success' : row.status === 'FAILED' ? 'danger' : row.status === 'RUNNING' ? 'primary' : 'info'" size="small">{{ row.status }}</el-tag>
+            <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+              {{ statusMeta[row.status]?.label || row.status || '未知' }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="开始时间" width="180">
@@ -128,8 +134,6 @@ onMounted(buildGanttFromLogs)
 </template>
 
 <style scoped>
-.page-container { padding: 16px; }
-.page-header { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
 .gantt-chart { border: 1px solid var(--el-border-color); border-radius: 4px; overflow: hidden; }
 .gantt-header { display: flex; background: var(--el-fill-color-light); border-bottom: 1px solid var(--el-border-color); }
 .gantt-label-header { width: 200px; padding: 8px 12px; font-weight: 600; border-right: 1px solid var(--el-border-color); }
@@ -146,5 +150,6 @@ onMounted(buildGanttFromLogs)
 .status-FAILED { background: #f56c6c; }
 .status-RUNNING { background: #409eff; animation: pulse 1s infinite; }
 .status-PENDING { background: #909399; }
+.status-NOT_STARTED { background: #909399; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 </style>

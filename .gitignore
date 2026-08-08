@@ -24,4 +24,5 @@ test-results/
 
 # Logs
 *.log
+*.err
 nohup.out

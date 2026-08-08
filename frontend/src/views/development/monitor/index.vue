@@ -10,6 +10,13 @@ const success = ref(0)
 const total = ref(0)
 const failedTasks = ref([])
 const runningTasks = ref([])
+const statusMeta = {
+  NOT_STARTED: { label: '未开始', type: 'info' },
+  WAITING: { label: '等待执行', type: 'warning' },
+  RUNNING: { label: '运行中', type: 'primary' },
+  SUCCESS: { label: '成功', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' }
+}
 
 let timer = null
 
@@ -35,6 +42,14 @@ function startAutoRefresh() {
 
 async function retry(task) {
   ElMessage.success('重试任务已提交: ' + task.name)
+}
+
+function statusLabel(status) {
+  return statusMeta[status]?.label || status || '未知'
+}
+
+function statusType(status) {
+  return statusMeta[status]?.type || 'info'
 }
 
 onMounted(() => {
@@ -109,7 +124,10 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
           <div v-for="task in runningTasks" :key="task.name" style="margin-bottom:20px">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px">
               <span>{{ task.name }}</span>
-              <span style="color:#999;font-size:12px">{{ task.startTime }} · {{ task.status }}</span>
+              <span style="color:#999;font-size:12px">
+                {{ task.startTime }}
+                <el-tag :type="statusType(task.status)" size="small" style="margin-left:8px">{{ statusLabel(task.status) }}</el-tag>
+              </span>
             </div>
             <el-progress :percentage="task.progress" :status="task.progress >= 100 ? 'success' : ''" :stroke-width="18">
               <template #default="{ percentage }">

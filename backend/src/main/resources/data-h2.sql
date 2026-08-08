@@ -36,12 +36,14 @@ INSERT INTO sys_menu (id, parent_id, menu_code, menu_name, path, component, menu
 (23, 20, 'dataflow', '数据流管理', '/aggregation/dataflow', 'aggregation/dataflow/index', 2, 'aggregation', NULL, 3),
 (24, 20, 'agg_monitor', '数据流监控', '/aggregation/monitor', 'aggregation/monitor/index', 2, 'aggregation', NULL, 4),
 (25, 20, 'fullsync', '整库同步', '/aggregation/fullsync', 'aggregation/fullsync/index', 2, 'aggregation', NULL, 5),
+(80, 20, 'migration_map', '数据迁移映射', '/aggregation/migration-map', 'aggregation/migration-map/index', 2, 'aggregation', 'Connection', 7),
 (26, 20, 'cdc', 'CDC实时同步', '/aggregation/cdc', 'aggregation/cdc/index', 2, 'aggregation', NULL, 6),
 (30, 0, 'governance', '数据治理', '/governance', NULL, 1, 'governance', 'DataAnalysis', 3),
 (31, 30, 'standard', '数据标准', '/governance/standard', 'governance/standard/index', 2, 'governance', NULL, 1),
 (32, 30, 'warehouse', '仓库分层', '/governance/warehouse', 'governance/warehouse/index', 2, 'governance', NULL, 2),
 (33, 30, 'modeling', '数据建模', '/governance/modeling', 'governance/modeling/index', 2, 'governance', NULL, 3),
-(34, 30, 'indicator', '指标管理', '/governance/indicator', 'governance/indicator/index', 2, 'governance', NULL, 4),
+(35, 30, 'cleaning', '数据清洗', '/governance/cleaning', 'governance/cleaning/index', 2, 'governance', 'MagicStick', 4),
+(34, 30, 'indicator', '指标管理', '/governance/indicator', 'governance/indicator/index', 2, 'governance', NULL, 5),
 (40, 0, 'development', '数据开发', '/development', NULL, 1, 'development', 'Edit', 4),
 (41, 40, 'workflow', '工作流开发', '/development/workflow', 'development/workflow/index', 2, 'development', NULL, 1),
 (42, 40, 'script', '脚本开发', '/development/script', 'development/script/index', 2, 'development', NULL, 2),
@@ -57,8 +59,26 @@ INSERT INTO sys_menu (id, parent_id, menu_code, menu_name, path, component, menu
 (62, 60, 'map', '数据地图', '/asset/map', 'asset/map/index', 2, 'asset', NULL, 2),
 (63, 60, 'asset_monitor', '资产监控', '/asset/monitor', 'asset/monitor/index', 2, 'asset', NULL, 3),
 (70, 0, 'infrastructure', '基础支撑', '/infrastructure', NULL, 1, 'infrastructure', 'Monitor', 7),
-(71, 70, 'component', '组件管理', '/infrastructure/component', 'infrastructure/component/index', 2, 'infrastructure', NULL, 1),
-(72, 70, 'cluster', '集群管理', '/infrastructure/cluster', 'infrastructure/cluster/index', 2, 'infrastructure', NULL, 2);
+(81, 70, 'infra_overview', '基础支撑总览', '/infrastructure/overview', 'infrastructure/overview/index', 2, 'infrastructure', 'DataBoard', 1),
+(82, 70, 'infra_host', '主机管理', '/infrastructure/host', 'infrastructure/host/index', 2, 'infrastructure', 'Platform', 2),
+(71, 70, 'component', '组件管理', '/infrastructure/component', 'infrastructure/component/index', 2, 'infrastructure', 'Setting', 3),
+(72, 70, 'cluster', '集群管理', '/infrastructure/cluster', 'infrastructure/cluster/index', 2, 'infrastructure', 'Collection', 4),
+(83, 70, 'infra_repository', '组件仓库', '/infrastructure/repository', 'infrastructure/repository/index', 2, 'infrastructure', 'FolderOpened', 5),
+(84, 70, 'infra_config', '服务配置', '/infrastructure/config', 'infrastructure/config/index', 2, 'infrastructure', 'Document', 6),
+(85, 70, 'infra_alert', '告警中心', '/infrastructure/alert', 'infrastructure/alert/index', 2, 'infrastructure', 'WarningFilled', 7),
+(86, 70, 'infra_monitor', '资源监控', '/infrastructure/monitor', 'infrastructure/monitor/index', 2, 'infrastructure', 'Monitor', 8),
+(87, 70, 'infra_resource_group', '资源组', '/infrastructure/resource-group', 'infrastructure/resource-group/index', 2, 'infrastructure', 'Grid', 9),
+(88, 70, 'infra_storage_quota', '存储配额', '/infrastructure/storage-quota', 'infrastructure/storage-quota/index', 2, 'infrastructure', 'Coin', 10),
+(74, 70, 'gov_proxy', '代理节点', '/infrastructure/proxynode', 'governance/proxynode/index', 2, 'infrastructure', 'Connection', 11),
+(89, 70, 'infra_log', '运维日志', '/infrastructure/log', 'portal/log/index', 2, 'infrastructure', 'Tickets', 12);
+
+INSERT INTO sys_menu (id, parent_id, menu_code, menu_name, path, component, menu_type, service_name, icon, sort_order, visible) VALUES
+(73, 10, 'portal_profile', '个人中心', '/portal/profile', 'portal/profile/index', 2, 'portal', 'UserFilled', 99, 0),
+(79, 10, 'portal_security', '安全管理', '/portal/security', 'portal/security/index', 2, 'portal', 'Lock', 7, 1),
+(75, 30, 'gov_monitor', '治理监控', '/governance/monitor', 'governance/monitor/index', 2, 'governance', 'Monitor', 7, 1),
+(76, 50, 'svc_unit', '服务单元', '/service/unit', 'service/unit/index', 2, 'service', 'Grid', 5, 1),
+(77, 50, 'svc_ratelimit', '限流配置', '/service/ratelimit', 'service/ratelimit/index', 2, 'service', 'Timer', 6, 1),
+(78, 50, 'svc_monitor', '服务监控', '/service/monitor', 'service/monitor/index', 2, 'service', 'DataLine', 7, 1);
 
 -- 管理员拥有全部菜单
 INSERT INTO sys_role_menu (role_id, menu_id)
@@ -120,14 +140,18 @@ INSERT INTO svc_service_unit (tenant_id, unit_name, description, status) VALUES
 (1, '用户信息服务单元', '提供用户基础信息查询', 1);
 
 -- 数据资产
-INSERT INTO asset_table (tenant_id, table_en, table_cn, database_name, layer_code, row_count, is_key_asset, create_by) VALUES
-(1, 'ods_user_info', '用户信息表', 'dw_db', 'ODS', 10000, 1, 'admin'),
-(1, 'std_user_info', '用户标准表', 'dw_db', 'STD', 9800, 0, 'admin');
+INSERT INTO asset_table (tenant_id, table_en, table_cn, database_name, datasource_id, layer_code, row_count, is_key_asset, create_by) VALUES
+(1, 'ods_user_info', '用户信息表', 'dw_db', 1, 'ODS', 10000, 1, 'admin'),
+(1, 'std_user_info', '用户标准表', 'dw_db', 2, 'STD', 9800, 0, 'admin');
 
 INSERT INTO asset_field (table_id, field_en, field_cn, field_type, is_sensitive) VALUES
 (1, 'user_id', '用户ID', 'BIGINT', 0),
 (1, 'phone', '手机号', 'VARCHAR', 1),
-(1, 'id_card', '身份证号', 'VARCHAR', 1);
+(1, 'id_card', '身份证号', 'VARCHAR', 1),
+(2, 'user_id', '用户ID', 'BIGINT', 0),
+(2, 'phone', '手机号', 'VARCHAR', 1),
+(2, 'id_card', '身份证号', 'VARCHAR', 1),
+(2, 'clean_time', '清洗时间', 'TIMESTAMP', 0);
 
 INSERT INTO asset_lineage (tenant_id, source_table_id, target_table_id, relation_type) VALUES
 (1, 1, 2, 'ETL');
@@ -154,3 +178,17 @@ INSERT INTO infra_component (tenant_id, host_id, component_type, version, status
 
 INSERT INTO infra_cluster (tenant_id, name, description, host_count, status) VALUES
 (1, '张掖大数据集群', '生产环境主集群', 2, 'NORMAL');
+
+INSERT INTO infra_repository (tenant_id, component_type, package_name, version, file_path, package_size_mb, checksum, compatible_os, status, remark) VALUES
+(1, 'HDFS', 'hadoop-3.3.4.tar.gz', '3.3.4', '/opt/packages/hadoop-3.3.4.tar.gz', 528.5, 'c8d5d7f4b2', 'CentOS 7.6', 'READY', 'NameNode 和 DataNode 部署包'),
+(1, 'Flink', 'flink-1.17.1.tar.gz', '1.17.1', '/opt/packages/flink-1.17.1.tar.gz', 312.8, 'f3ac92b7a1', 'CentOS 7.6', 'DISTRIBUTED', 'Flink SQL 运行包');
+
+INSERT INTO infra_alert (tenant_id, alert_name, alert_level, alert_type, target_type, target_name, rule_expr, message, status, handle_suggestion, last_trigger_time) VALUES
+(1, 'HDFS 容量预警', 'WARN', 'CAPACITY', 'CLUSTER', '张掖大数据集群', 'disk_usage > 80', 'HDFS 存储空间使用率超过阈值', 'ACTIVE', '扩容数据盘或清理历史文件', CURRENT_TIMESTAMP),
+(1, 'YARN 资源池告警', 'INFO', 'RESOURCE_POOL', 'QUEUE', 'default', 'pending_app > 20', 'YARN 队列积压任务较多', 'ACKED', '检查调度优先级和资源池配额', CURRENT_TIMESTAMP);
+
+INSERT INTO infra_resource_group (tenant_id, group_name, resource_type, resource_key, description, max_cores, max_memory_gb, status) VALUES
+(1, 'default', 'YARN_QUEUE', 'root.default', '默认计算资源池', 24, 96, 'ENABLED');
+
+INSERT INTO storage_quota (tenant_id, datasource_id, database_name, max_size_gb, current_usage_gb, alert_threshold_pct, status) VALUES
+(1, NULL, 'dw_db', 1000, 580, 80, 'NORMAL');

@@ -25,12 +25,14 @@ const routes = [
       { path: 'aggregation/datasource', component: () => import('../views/aggregation/datasource/index.vue'), meta: { title: '数据源管理' } },
       { path: 'aggregation/increment', component: () => import('../views/aggregation/increment/index.vue'), meta: { title: '增量字段' } },
       { path: 'aggregation/dataflow', component: () => import('../views/aggregation/dataflow/index.vue'), meta: { title: '数据流管理' } },
+      { path: 'aggregation/migration-map', component: () => import('../views/aggregation/migration-map/index.vue'), meta: { title: '数据迁移映射' } },
       { path: 'aggregation/monitor', component: () => import('../views/aggregation/monitor/index.vue'), meta: { title: '数据流监控' } },
       { path: 'aggregation/fullsync', component: () => import('../views/aggregation/fullsync/index.vue'), meta: { title: '整库同步' } },
       { path: 'aggregation/cdc', component: () => import('../views/aggregation/cdc/index.vue'), meta: { title: 'CDC实时同步' } },
       { path: 'governance/standard', component: () => import('../views/governance/standard/index.vue'), meta: { title: '数据标准' } },
       { path: 'governance/warehouse', component: () => import('../views/governance/warehouse/index.vue'), meta: { title: '仓库分层' } },
       { path: 'governance/modeling', component: () => import('../views/governance/modeling/index.vue'), meta: { title: '数据建模' } },
+      { path: 'governance/cleaning', component: () => import('../views/governance/cleaning/index.vue'), meta: { title: '数据清洗' } },
       { path: 'governance/indicator', component: () => import('../views/governance/indicator/index.vue'), meta: { title: '指标管理' } },
       { path: 'governance/proxynode', component: () => import('../views/governance/proxynode/index.vue'), meta: { title: '代理节点' } },
       { path: 'governance/monitor', component: () => import('../views/governance/monitor/index.vue'), meta: { title: '治理监控' } },
@@ -55,10 +57,18 @@ const routes = [
       { path: 'asset/overview', component: () => import('../views/asset/overview/index.vue'), meta: { title: '数据总览' } },
       { path: 'asset/map', component: () => import('../views/asset/map/index.vue'), meta: { title: '数据地图' } },
       { path: 'asset/monitor', component: () => import('../views/asset/monitor/index.vue'), meta: { title: '资产监控' } },
+      { path: 'infrastructure/overview', component: () => import('../views/infrastructure/overview/index.vue'), meta: { title: '基础支撑总览' } },
+      { path: 'infrastructure/host', component: () => import('../views/infrastructure/host/index.vue'), meta: { title: '主机管理' } },
       { path: 'infrastructure/component', component: () => import('../views/infrastructure/component/index.vue'), meta: { title: '组件管理' } },
       { path: 'infrastructure/cluster', component: () => import('../views/infrastructure/cluster/index.vue'), meta: { title: '集群管理' } },
+      { path: 'infrastructure/repository', component: () => import('../views/infrastructure/repository/index.vue'), meta: { title: '组件仓库' } },
+      { path: 'infrastructure/config', component: () => import('../views/infrastructure/config/index.vue'), meta: { title: '服务配置' } },
+      { path: 'infrastructure/alert', component: () => import('../views/infrastructure/alert/index.vue'), meta: { title: '告警中心' } },
       { path: 'infrastructure/monitor', component: () => import('../views/infrastructure/monitor/index.vue'), meta: { title: '资源监控' } },
-      { path: 'infrastructure/resource-group', component: () => import('../views/infrastructure/resource-group/index.vue'), meta: { title: '资源组' } }
+      { path: 'infrastructure/resource-group', component: () => import('../views/infrastructure/resource-group/index.vue'), meta: { title: '资源组' } },
+      { path: 'infrastructure/storage-quota', component: () => import('../views/infrastructure/storage-quota/index.vue'), meta: { title: '存储配额' } },
+      { path: 'infrastructure/proxynode', component: () => import('../views/governance/proxynode/index.vue'), meta: { title: '代理节点' } },
+      { path: 'infrastructure/log', component: () => import('../views/portal/log/index.vue'), meta: { title: '日志管理' } }
     ]
   }
 ]

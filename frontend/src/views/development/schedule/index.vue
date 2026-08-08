@@ -10,6 +10,14 @@ const query = reactive({ page: 1, size: 10, name: '' })
 const dialogVisible = ref(false)
 const form = ref({})
 const isEdit = ref(false)
+const statusMeta = {
+  NOT_STARTED: { label: '未开始', type: 'info' },
+  WAITING: { label: '等待执行', type: 'warning' },
+  RUNNING: { label: '运行中', type: 'primary' },
+  SUCCESS: { label: '成功', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' },
+  STOPPED: { label: '已停止', type: 'info' }
+}
 
 async function loadData() {
   loading.value = true
@@ -61,7 +69,13 @@ onMounted(loadData)
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="triggerType" label="触发方式" width="100" />
       <el-table-column prop="cronExpr" label="Cron" />
-      <el-table-column prop="status" label="状态" width="90" />
+      <el-table-column prop="status" label="状态" width="90">
+        <template #default="{ row }">
+          <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+            {{ statusMeta[row.status]?.label || row.status || '未知' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="lastRunTime" label="最近运行" width="180" />
       <el-table-column label="操作" width="260">
         <template #default="{ row }">

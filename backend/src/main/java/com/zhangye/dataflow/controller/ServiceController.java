@@ -230,6 +230,14 @@ public class ServiceController {
         return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
     }
 
+    @GetMapping("/monitor/call-logs")
+    public Result<PageResult<SvcApiCallLog>> monitorCallLogs(
+            @RequestParam(defaultValue = "1") long page, @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String apiName,
+            @RequestParam(required = false) Integer success) {
+        return callLogPage(page, size, apiName, success);
+    }
+
     @GetMapping("/monitor/stats")
     public Result<Map<String, Object>> monitorStats() {
         Long tid = tid();

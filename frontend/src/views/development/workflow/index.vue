@@ -12,6 +12,14 @@ const designerVisible = ref(false)
 const form = ref({})
 const isEdit = ref(false)
 const dagJson = ref('{"nodes":[],"edges":[]}')
+const statusMeta = {
+  DRAFT: { label: '草稿', type: 'info' },
+  PUBLISHED: { label: '已发布', type: 'success' },
+  RUNNING: { label: '运行中', type: 'primary' },
+  SUCCESS: { label: '成功', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' },
+  NOT_STARTED: { label: '未开始', type: 'info' }
+}
 
 async function loadData() {
   loading.value = true
@@ -64,7 +72,13 @@ onMounted(loadData)
     </div>
     <el-table :data="tableData" v-loading="loading" border>
       <el-table-column prop="name" label="名称" />
-      <el-table-column prop="status" label="状态" width="100" />
+      <el-table-column prop="status" label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+            {{ statusMeta[row.status]?.label || row.status || '未知' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="scheduleCron" label="调度Cron" />
       <el-table-column prop="createBy" label="创建人" width="100" />
       <el-table-column label="操作" width="320">

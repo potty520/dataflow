@@ -367,6 +367,16 @@ public class DevelopmentController {
         return Result.ok(PageResult.of(p.getTotal(), page, size, p.getRecords()));
     }
 
+    @GetMapping("/hdfs/list")
+    public Result<List<DevHdfsFile>> hdfsList(@RequestParam(defaultValue = "/") String path) {
+        LambdaQueryWrapper<DevHdfsFile> qw = new LambdaQueryWrapper<DevHdfsFile>()
+                .eq(DevHdfsFile::getTenantId, tid())
+                .eq(DevHdfsFile::getParentPath, path)
+                .orderByDesc(DevHdfsFile::getIsDir)
+                .orderByAsc(DevHdfsFile::getFileName);
+        return Result.ok(hdfsFileMapper.selectList(qw));
+    }
+
     @PostMapping("/hdfs")
     public Result<Void> createHdfs(@RequestBody DevHdfsFile e) {
         e.setTenantId(tid());
@@ -378,10 +388,45 @@ public class DevelopmentController {
         return Result.ok();
     }
 
+    @PostMapping("/hdfs/mkdir")
+    public Result<Void> hdfsMkdir(@RequestBody DevHdfsFile e) {
+        e.setIsDir(1);
+        e.setFileSize(0L);
+        return createHdfs(e);
+    }
+
     @DeleteMapping("/hdfs/{id}")
     public Result<Void> deleteHdfs(@PathVariable Long id) {
         hdfsFileMapper.deleteById(id);
         return Result.ok();
+    }
+
+    @DeleteMapping("/hdfs/delete")
+    public Result<Void> hdfsDelete(@RequestParam String path) {
+        hdfsFileMapper.delete(new LambdaQueryWrapper<DevHdfsFile>()
+                .eq(DevHdfsFile::getTenantId, tid())
+                .eq(DevHdfsFile::getFilePath, path));
+        return Result.ok();
+    }
+
+    @GetMapping("/hdfs/preview")
+    public Result<Map<String, Object>> hdfsPreview(@RequestParam String path) {
+        DevHdfsFile file = hdfsFileMapper.selectOne(new LambdaQueryWrapper<DevHdfsFile>()
+                .eq(DevHdfsFile::getTenantId, tid())
+                .eq(DevHdfsFile::getFilePath, path)
+                .last("LIMIT 1"));
+        Map<String, Object> data = new HashMap<>();
+        data.put("file", file);
+        data.put("content", file != null && file.getIsDir() != null && file.getIsDir() == 1 ? "目录不支持预览" : "");
+        return Result.ok(data);
+    }
+
+    @GetMapping("/hdfs/download")
+    public Result<Map<String, Object>> hdfsDownload(@RequestParam String path) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("path", path);
+        data.put("message", "当前版本仅维护HDFS文件目录元数据，暂未接入真实文件下载流。");
+        return Result.ok(data);
     }
 
     // ---------- UDF函数管理 ----------

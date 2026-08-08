@@ -14,6 +14,12 @@ const ruleDialog = ref(false)
 const taskDialog = ref(false)
 const ruleForm = ref({ name: '', dimension: '', ruleLevel: 'FIELD', ruleExpr: '', templateType: '' })
 const taskForm = ref({ ruleId: null, targetTable: '' })
+const statusMeta = {
+  NOT_STARTED: { label: '未开始', type: 'info' },
+  RUNNING: { label: '运行中', type: 'primary' },
+  SUCCESS: { label: '成功', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' }
+}
 
 async function loadOverview() {
   const res = await devQualityOverview()
@@ -90,7 +96,13 @@ onMounted(() => { loadOverview(); loadTemplates(); loadData() })
         <div class="search-bar"><el-button type="success" @click="taskDialog = true">新建任务</el-button></div>
         <el-table :data="data" v-loading="loading" border>
           <el-table-column prop="targetTable" label="目标表" />
-          <el-table-column prop="status" label="状态" width="90" />
+          <el-table-column prop="status" label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="statusMeta[row.status]?.type || 'info'" size="small">
+                {{ statusMeta[row.status]?.label || row.status || '未知' }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="score" label="评分" width="80" />
           <el-table-column prop="issueCount" label="问题数" width="80" />
           <el-table-column prop="lastRunTime" label="最近执行" width="180" />

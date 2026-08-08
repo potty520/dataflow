@@ -84,6 +84,10 @@ LOCK TABLES `asset_field` WRITE;
 INSERT INTO `asset_field` (`id`, `table_id`, `field_en`, `field_cn`, `field_type`, `description`, `is_sensitive`, `create_time`) VALUES (1,1,'user_id','用户ID','BIGINT',NULL,0,'2026-06-30 07:29:27');
 INSERT INTO `asset_field` (`id`, `table_id`, `field_en`, `field_cn`, `field_type`, `description`, `is_sensitive`, `create_time`) VALUES (2,1,'phone','手机号','VARCHAR',NULL,1,'2026-06-30 07:29:27');
 INSERT INTO `asset_field` (`id`, `table_id`, `field_en`, `field_cn`, `field_type`, `description`, `is_sensitive`, `create_time`) VALUES (3,1,'id_card','身份证号','VARCHAR',NULL,1,'2026-06-30 07:29:27');
+INSERT INTO `asset_field` (`id`, `table_id`, `field_en`, `field_cn`, `field_type`, `description`, `is_sensitive`, `create_time`) VALUES (4,2,'user_id','用户ID','BIGINT',NULL,0,'2026-06-30 07:29:27');
+INSERT INTO `asset_field` (`id`, `table_id`, `field_en`, `field_cn`, `field_type`, `description`, `is_sensitive`, `create_time`) VALUES (5,2,'phone','手机号','VARCHAR',NULL,1,'2026-06-30 07:29:27');
+INSERT INTO `asset_field` (`id`, `table_id`, `field_en`, `field_cn`, `field_type`, `description`, `is_sensitive`, `create_time`) VALUES (6,2,'id_card','身份证号','VARCHAR',NULL,1,'2026-06-30 07:29:27');
+INSERT INTO `asset_field` (`id`, `table_id`, `field_en`, `field_cn`, `field_type`, `description`, `is_sensitive`, `create_time`) VALUES (7,2,'clean_time','清洗时间','TIMESTAMP',NULL,0,'2026-06-30 07:29:27');
 /*!40000 ALTER TABLE `asset_field` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -115,8 +119,8 @@ UNLOCK TABLES;
 
 LOCK TABLES `asset_table` WRITE;
 /*!40000 ALTER TABLE `asset_table` DISABLE KEYS */;
-INSERT INTO `asset_table` (`id`, `tenant_id`, `table_en`, `table_cn`, `database_name`, `datasource_id`, `layer_code`, `row_count`, `is_key_asset`, `create_by`, `create_time`, `update_time`, `deleted`) VALUES (1,1,'ods_user_info','用户信息表','dw_db',NULL,'ODS',10000,1,'admin','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
-INSERT INTO `asset_table` (`id`, `tenant_id`, `table_en`, `table_cn`, `database_name`, `datasource_id`, `layer_code`, `row_count`, `is_key_asset`, `create_by`, `create_time`, `update_time`, `deleted`) VALUES (2,1,'std_user_info','用户标准表','dw_db',NULL,'STD',9800,0,'admin','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
+INSERT INTO `asset_table` (`id`, `tenant_id`, `table_en`, `table_cn`, `database_name`, `datasource_id`, `layer_code`, `row_count`, `is_key_asset`, `create_by`, `create_time`, `update_time`, `deleted`) VALUES (1,1,'ods_user_info','用户信息表','dw_db',1,'ODS',10000,1,'admin','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
+INSERT INTO `asset_table` (`id`, `tenant_id`, `table_en`, `table_cn`, `database_name`, `datasource_id`, `layer_code`, `row_count`, `is_key_asset`, `create_by`, `create_time`, `update_time`, `deleted`) VALUES (2,1,'std_user_info','用户标准表','dw_db',2,'STD',9800,0,'admin','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
 INSERT INTO `asset_table` (`id`, `tenant_id`, `table_en`, `table_cn`, `database_name`, `datasource_id`, `layer_code`, `row_count`, `is_key_asset`, `create_by`, `create_time`, `update_time`, `deleted`) VALUES (3,1,'dwd_user_detail','用户明细表','dw_db',NULL,'DWD',9500,0,'admin','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
 INSERT INTO `asset_table` (`id`, `tenant_id`, `table_en`, `table_cn`, `database_name`, `datasource_id`, `layer_code`, `row_count`, `is_key_asset`, `create_by`, `create_time`, `update_time`, `deleted`) VALUES (4,1,'dws_user_daily','用户日汇总','dw_db',NULL,'DWS',3650,0,'admin','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
 INSERT INTO `asset_table` (`id`, `tenant_id`, `table_en`, `table_cn`, `database_name`, `datasource_id`, `layer_code`, `row_count`, `is_key_asset`, `create_by`, `create_time`, `update_time`, `deleted`) VALUES (5,1,'ads_user_report','用户分析报表','dw_db',NULL,'ADS',120,1,'admin','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
@@ -441,11 +445,34 @@ INSERT INTO `infra_host` (`id`, `tenant_id`, `hostname`, `ip`, `cpu_cores`, `mem
 UNLOCK TABLES;
 
 --
+-- Dumping data for table `infra_repository`
+--
+
+LOCK TABLES `infra_repository` WRITE;
+/*!40000 ALTER TABLE `infra_repository` DISABLE KEYS */;
+INSERT INTO `infra_repository` (`id`, `tenant_id`, `component_type`, `package_name`, `version`, `file_path`, `package_size_mb`, `checksum`, `compatible_os`, `status`, `remark`, `create_time`, `update_time`, `deleted`) VALUES (1,1,'HDFS','hadoop-3.3.4.tar.gz','3.3.4','/opt/packages/hadoop-3.3.4.tar.gz',528.50,'c8d5d7f4b2','CentOS 7.6','READY','NameNode 和 DataNode 部署包','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
+INSERT INTO `infra_repository` (`id`, `tenant_id`, `component_type`, `package_name`, `version`, `file_path`, `package_size_mb`, `checksum`, `compatible_os`, `status`, `remark`, `create_time`, `update_time`, `deleted`) VALUES (2,1,'Flink','flink-1.17.1.tar.gz','1.17.1','/opt/packages/flink-1.17.1.tar.gz',312.80,'f3ac92b7a1','CentOS 7.6','DISTRIBUTED','Flink SQL 运行包','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
+/*!40000 ALTER TABLE `infra_repository` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `infra_alert`
+--
+
+LOCK TABLES `infra_alert` WRITE;
+/*!40000 ALTER TABLE `infra_alert` DISABLE KEYS */;
+INSERT INTO `infra_alert` (`id`, `tenant_id`, `alert_name`, `alert_level`, `alert_type`, `target_type`, `target_name`, `rule_expr`, `message`, `status`, `handle_suggestion`, `last_trigger_time`, `create_time`, `update_time`, `deleted`) VALUES (1,1,'HDFS 容量预警','WARN','CAPACITY','CLUSTER','张掖大数据集群','disk_usage > 80','HDFS 存储空间使用率超过阈值','ACTIVE','扩容数据盘或清理历史文件','2026-06-30 07:29:27','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
+INSERT INTO `infra_alert` (`id`, `tenant_id`, `alert_name`, `alert_level`, `alert_type`, `target_type`, `target_name`, `rule_expr`, `message`, `status`, `handle_suggestion`, `last_trigger_time`, `create_time`, `update_time`, `deleted`) VALUES (2,1,'YARN 资源池告警','INFO','RESOURCE_POOL','QUEUE','default','pending_app > 20','YARN 队列积压任务较多','ACKED','检查调度优先级和资源池配额','2026-06-30 07:29:27','2026-06-30 07:29:27','2026-06-30 07:29:27',0);
+/*!40000 ALTER TABLE `infra_alert` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Dumping data for table `infra_resource_group`
 --
 
 LOCK TABLES `infra_resource_group` WRITE;
 /*!40000 ALTER TABLE `infra_resource_group` DISABLE KEYS */;
+INSERT INTO `infra_resource_group` (`id`, `tenant_id`, `group_name`, `resource_type`, `resource_key`, `description`, `max_cores`, `max_memory_gb`, `status`, `create_time`, `deleted`) VALUES (1,1,'default','YARN_QUEUE','root.default','默认计算资源池',24,96.00,'ENABLED','2026-06-30 07:29:27',0);
 /*!40000 ALTER TABLE `infra_resource_group` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -473,6 +500,7 @@ UNLOCK TABLES;
 
 LOCK TABLES `storage_quota` WRITE;
 /*!40000 ALTER TABLE `storage_quota` DISABLE KEYS */;
+INSERT INTO `storage_quota` (`id`, `tenant_id`, `datasource_id`, `database_name`, `max_size_gb`, `current_usage_gb`, `alert_threshold_pct`, `status`, `create_time`, `deleted`) VALUES (1,1,NULL,'dw_db',1000.00,580.00,80,'NORMAL','2026-06-30 07:29:27',0);
 /*!40000 ALTER TABLE `storage_quota` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -560,6 +588,10 @@ UNLOCK TABLES;
 
 LOCK TABLES `sys_config` WRITE;
 /*!40000 ALTER TABLE `sys_config` DISABLE KEYS */;
+INSERT INTO `sys_config` (`id`, `config_key`, `config_value`, `description`, `env`, `update_time`) VALUES (1,'infra.config.core-site.xml','<configuration><property><name>fs.defaultFS</name><value>hdfs://hadoop132:9000</value></property></configuration>','基础支撑配置文件','DEV','2026-06-30 07:29:27');
+INSERT INTO `sys_config` (`id`, `config_key`, `config_value`, `description`, `env`, `update_time`) VALUES (2,'infra.config.hdfs-site.xml','<configuration><property><name>dfs.replication</name><value>3</value></property></configuration>','基础支撑配置文件','DEV','2026-06-30 07:29:27');
+INSERT INTO `sys_config` (`id`, `config_key`, `config_value`, `description`, `env`, `update_time`) VALUES (3,'infra.config.yarn-site.xml','<configuration><property><name>yarn.scheduler.maximum-allocation-mb</name><value>8192</value></property></configuration>','基础支撑配置文件','DEV','2026-06-30 07:29:27');
+INSERT INTO `sys_config` (`id`, `config_key`, `config_value`, `description`, `env`, `update_time`) VALUES (4,'infra.config.hive-site.xml','<configuration><property><name>hive.metastore.uris</name><value>thrift://192.168.184.132:9083</value></property></configuration>','基础支撑配置文件','DEV','2026-06-30 07:29:27');
 /*!40000 ALTER TABLE `sys_config` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -596,11 +628,13 @@ INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `descriptio
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (24,20,'agg_monitor','数据流监控',NULL,'/aggregation/monitor','aggregation/monitor/index',2,'aggregation',NULL,4,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (25,20,'fullsync','整库同步',NULL,'/aggregation/fullsync','aggregation/fullsync/index',2,'aggregation',NULL,5,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (26,20,'cdc','CDC实时同步',NULL,'/aggregation/cdc','aggregation/cdc/index',2,'aggregation',NULL,6,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (80,20,'migration_map','数据迁移映射',NULL,'/aggregation/migration-map','aggregation/migration-map/index',2,'aggregation','Connection',7,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (30,0,'governance','数据治理',NULL,'/governance',NULL,1,'governance','DataAnalysis',3,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (31,30,'standard','数据标准',NULL,'/governance/standard','governance/standard/index',2,'governance',NULL,1,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (32,30,'warehouse','仓库分层',NULL,'/governance/warehouse','governance/warehouse/index',2,'governance',NULL,2,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (33,30,'modeling','数据建模',NULL,'/governance/modeling','governance/modeling/index',2,'governance',NULL,3,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (34,30,'indicator','指标管理',NULL,'/governance/indicator','governance/indicator/index',2,'governance',NULL,4,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (35,30,'cleaning','数据清洗',NULL,'/governance/cleaning','governance/cleaning/index',2,'governance','MagicStick',4,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (34,30,'indicator','指标管理',NULL,'/governance/indicator','governance/indicator/index',2,'governance',NULL,5,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (40,0,'development','数据开发',NULL,'/development',NULL,1,'development','Edit',4,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (41,40,'workflow','工作流开发',NULL,'/development/workflow','development/workflow/index',2,'development',NULL,1,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (42,40,'script','脚本开发',NULL,'/development/script','development/script/index',2,'development',NULL,2,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
@@ -616,15 +650,24 @@ INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `descriptio
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (62,60,'map','数据地图',NULL,'/asset/map','asset/map/index',2,'asset',NULL,2,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (63,60,'asset_monitor','资产监控',NULL,'/asset/monitor','asset/monitor/index',2,'asset',NULL,3,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (70,0,'infrastructure','基础支撑',NULL,'/infrastructure',NULL,1,'infrastructure','Monitor',7,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (71,70,'component','组件管理',NULL,'/infrastructure/component','infrastructure/component/index',2,'infrastructure',NULL,1,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (72,70,'cluster','集群管理',NULL,'/infrastructure/cluster','infrastructure/cluster/index',2,'infrastructure',NULL,2,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (73,0,'portal_profile','个人中心',NULL,'/portal/profile','portal/profile/index',2,NULL,'UserFilled',99,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (74,0,'gov_proxy','代理节点',NULL,'/governance/proxynode','governance/proxynode/index',2,NULL,'Connection',40,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (75,0,'gov_monitor','治理监控',NULL,'/governance/monitor','governance/monitor/index',2,NULL,'Monitor',50,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (76,0,'svc_unit','服务单元',NULL,'/service/unit','service/unit/index',2,NULL,'Grid',30,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (77,0,'svc_ratelimit','流控策略',NULL,'/service/ratelimit','service/ratelimit/index',2,NULL,'Timer',40,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (78,0,'svc_monitor','服务监控',NULL,'/service/monitor','service/monitor/index',2,NULL,'DataLine',50,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (79,0,'portal_security','安全管理',NULL,'/portal/security','portal/security/index',2,NULL,'Lock',98,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (81,70,'infra_overview','基础支撑总览',NULL,'/infrastructure/overview','infrastructure/overview/index',2,'infrastructure','DataBoard',1,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (82,70,'infra_host','主机管理',NULL,'/infrastructure/host','infrastructure/host/index',2,'infrastructure','Platform',2,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (71,70,'component','组件管理',NULL,'/infrastructure/component','infrastructure/component/index',2,'infrastructure','Setting',3,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (72,70,'cluster','集群管理',NULL,'/infrastructure/cluster','infrastructure/cluster/index',2,'infrastructure','Collection',4,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (83,70,'infra_repository','组件仓库',NULL,'/infrastructure/repository','infrastructure/repository/index',2,'infrastructure','FolderOpened',5,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (84,70,'infra_config','服务配置',NULL,'/infrastructure/config','infrastructure/config/index',2,'infrastructure','Document',6,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (85,70,'infra_alert','告警中心',NULL,'/infrastructure/alert','infrastructure/alert/index',2,'infrastructure','WarningFilled',7,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (86,70,'infra_monitor','资源监控',NULL,'/infrastructure/monitor','infrastructure/monitor/index',2,'infrastructure','Monitor',8,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (87,70,'infra_resource_group','资源组',NULL,'/infrastructure/resource-group','infrastructure/resource-group/index',2,'infrastructure','Grid',9,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (88,70,'infra_storage_quota','存储配额',NULL,'/infrastructure/storage-quota','infrastructure/storage-quota/index',2,'infrastructure','Coin',10,1,'2026-06-30 07:29:26','2026-06-30 07:29:26',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (74,70,'gov_proxy','代理节点',NULL,'/infrastructure/proxynode','governance/proxynode/index',2,'infrastructure','Connection',11,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (89,70,'infra_log','运维日志',NULL,'/infrastructure/log','portal/log/index',2,'infrastructure','Tickets',12,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (73,10,'portal_profile','个人中心',NULL,'/portal/profile','portal/profile/index',2,'portal','UserFilled',99,0,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (75,30,'gov_monitor','治理监控',NULL,'/governance/monitor','governance/monitor/index',2,'governance','Monitor',7,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (76,50,'svc_unit','服务单元',NULL,'/service/unit','service/unit/index',2,'service','Grid',5,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (77,50,'svc_ratelimit','限流配置',NULL,'/service/ratelimit','service/ratelimit/index',2,'service','Timer',6,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (78,50,'svc_monitor','服务监控',NULL,'/service/monitor','service/monitor/index',2,'service','DataLine',7,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_code`, `menu_name`, `description`, `path`, `component`, `menu_type`, `service_name`, `icon`, `sort_order`, `visible`, `create_time`, `update_time`, `deleted`) VALUES (79,10,'portal_security','安全管理',NULL,'/portal/security','portal/security/index',2,'portal','Lock',7,1,'2026-06-30 12:48:58','2026-06-30 12:48:58',0);
 /*!40000 ALTER TABLE `sys_menu` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -740,6 +783,7 @@ INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1,76);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1,77);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1,78);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1,79);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1,80);
 /*!40000 ALTER TABLE `sys_role_menu` ENABLE KEYS */;
 UNLOCK TABLES;
 

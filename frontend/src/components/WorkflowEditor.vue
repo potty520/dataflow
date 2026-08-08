@@ -26,6 +26,11 @@ const nodes = ref([])
 const edges = ref([])
 const selectedNodeId = ref(null)
 const nodeIdSeq = ref(1)
+const editorRef = ref(null)
+const NODE_START_X = 80
+const NODE_START_Y = 80
+const NODE_SPACING_Y = 110
+const NODE_SPACING_X = 180
 
 const configPanel = computed(() => {
   if (!selectedNodeId.value) return null
@@ -114,16 +119,31 @@ function onConnect(params) {
 
 function addNode(meta) {
   const id = String(nodeIdSeq.value++)
-  nodes.value = [
-    ...nodes.value,
-    {
-      id,
-      type: 'default',
-      label: meta.label,
-      position: { x: 120 + Math.random() * 160, y: 100 + Math.random() * 120 },
-      data: { nodeType: meta.type, label: meta.label, color: meta.color, config: { remark: '' } }
-    }
-  ]
+  const lastNode = nodes.value[nodes.value.length - 1]
+  const position = lastNode
+    ? { x: lastNode.position.x + (nodes.value.length % 3 === 0 ? NODE_SPACING_X : 0), y: lastNode.position.y + (nodes.value.length % 3 === 0 ? -NODE_SPACING_Y * 2 : NODE_SPACING_Y) }
+    : { x: NODE_START_X, y: NODE_START_Y }
+  nodes.value.push({
+    id,
+    type: 'default',
+    label: meta.label,
+    position,
+    data: { nodeType: meta.type, label: meta.label, color: meta.color, config: buildDefaultConfig(meta.type) }
+  })
+  selectedNodeId.value = id
+}
+
+function buildDefaultConfig(type) {
+  const presets = {
+    extract: { datasource: '', table: '', mode: 'full' },
+    transform: { sql: '', outputTable: '' },
+    quality: { rule: 'not_null', failPolicy: 'warn' },
+    governance: { standard: '', cleaning: 'trim,null_filter' },
+    load: { target: '', writeMode: 'insert' },
+    output: { format: 'table', destination: '' },
+    condition: { expression: '${row_count} > 0', trueBranch: '', falseBranch: '' }
+  }
+  return { ...(presets[type] || {}), remark: '' }
 }
 
 function onNodeClick({ node }) {
@@ -151,7 +171,7 @@ defineExpose({ serializeDag })
 </script>
 
 <template>
-  <div class="workflow-editor">
+  <div ref="editorRef" class="workflow-editor">
     <div class="palette">
       <div class="palette-title">算子面板</div>
       <div
