@@ -28,3 +28,12 @@
 | 数据安全 | [security.png](./images/security.png) |
 
 > 仓库同时保留了项目原始需求基线：`requirements_extracted.txt`、`需求说明书—大数据基座平台.md`（位于仓库根目录）。
+## 新增报告的归档约定
+
+新的验收/压测/测试报告请放到本目录（`docs/`），文件名建议：`验收报告-<范围>.md`、`压测报告-<日期>.md`，然后执行：
+
+```bash
+python deploy/publish_docs.py "docs: 新增 压测报告-2026-10"
+```
+
+脚本会自动 `git push`；主站不可达时自动改用 GitHub API 提交，保证报告一定入库。

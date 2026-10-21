@@ -200,6 +200,17 @@ export DGP_NGINX_PORT=8093; python deploy/nginx_setup.py
 - `deploy/remote.py` 支持 `probe / deploy / status / logs / restart / stop` 子命令。
 - 数据备份：H2 备份 `backend/data`；MySQL 用 `mysqldump --single-transaction dgp`。
 
+## 报告与文档发布
+
+验收/压测/测试报告统一放在 `docs/` 下，并保留在仓库中。新增或更新报告后，一条命令即可发布：
+
+```bash
+python deploy/publish_docs.py "docs: 新增 XX 报告"
+python deploy/publish_docs.py --dry-run    # 先看哪些文件有差异
+```
+
+脚本优先 `git push`（3 次重试）；当 `github.com:443` 不可达时会自动降级为 **GitHub REST API** 直连 `api.github.com` 提交（只上传内容有差异的文件），因此报告不会因为网络问题漏推。凭据复用本机 git 凭据管理器，不落盘、不打印。
+
 ## 已知限制与 Roadmap
 
 - 多租户目前做到「字段 + 菜单/数据权限」隔离，**行级 SQL 自动注入**尚未实现（Roadmap 第一项）。
