@@ -1,0 +1,31 @@
+# MySQL 8 后台库 profile（测试/演示用）
+# 启动：java -jar dgp-boot.jar --spring.profiles.active=mysql
+# 示例：DGP_DB_PASSWORD=*** java -jar dgp-boot.jar --spring.profiles.active=mysql
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: "jdbc:mysql://${DGP_DB_HOST:127.0.0.1}:${DGP_DB_PORT:3306}/${DGP_DB_NAME:dgp}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true"
+    username: ${DGP_DB_USER:dgp}
+    password: ${DGP_DB_PASSWORD:}
+    hikari:
+      # 并发调优：100 并发读、单请求 0~5 条 SQL，24 连接足够；过多会挤占 1 核 CPU 的上下文切换
+      maximum-pool-size: 24
+      minimum-idle: 4
+      connection-timeout: 10000
+      # PIPES_AS_CONCAT：让 `a || b` 作为字符串拼接；单语句 60s 超时；行锁等待 10s（快速失败而非默认 50s）
+      connection-init-sql: "SET SESSION sql_mode=CONCAT(@@sql_mode, ',PIPES_AS_CONCAT'), SESSION max_execution_time=60000, SESSION innodb_lock_wait_timeout=10"
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-mysql.sql
+      continue-on-error: false
+
+dgp:
+  # 元数据采集读取 information_schema 的库名（MySQL 用库名，H2/PG 用 public）
+  meta:
+    schema: ${DGP_DB_NAME:dgp}
+
+logging:
+  level:
+    root: INFO
+    com.dgp: INFO
