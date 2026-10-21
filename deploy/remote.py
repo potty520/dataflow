@@ -104,7 +104,11 @@ def deploy(local_jar, port, secrets):
         f.write("DGP_JWT_SECRET=%s\n" % secrets["jwt"])
         f.write("DGP_MASK_KEY=%s\n" % secrets["mask"])
         f.write("DGP_CORS_ORIGINS=http://%s:%d,http://%s:%d,http://%s\n" % (HOST, port, HOST, int(os.environ.get("DGP_NGINX_PORT", "8093")), HOST))
-        f.write("JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseSerialGC -Dfile.encoding=UTF-8\n")
+        # 按机器规模调优（Spring Boot 宽松绑定：环境变量直接覆盖配置项）
+        if os.environ.get("DGP_TOMCAT_THREADS"):
+            f.write("SERVER_TOMCAT_THREADS_MAX=%s\n" % os.environ["DGP_TOMCAT_THREADS"])
+        if os.environ.get("DGP_DB_POOL"):
+            f.write("SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=%s\n" % os.environ["DGP_DB_POOL"])        # 默认适配 1~2G 小机器；4C8G 及以上可用 DGP_JAVA_OPTS 覆盖为 "-Xms1g -Xmx2g -XX:+UseG1GC -Dfile.encoding=UTF-8"\n        f.write("JAVA_OPTS=%s\n" % os.environ.get("DGP_JAVA_OPTS", "-Xms256m -Xmx512m -XX:+UseSerialGC -Dfile.encoding=UTF-8"))
         # MySQL profile：通过环境变量启用（不写入 unit，便于一键切换回 H2）
         if os.environ.get("DGP_DB_PASSWORD"):
             f.write("SPRING_PROFILES_ACTIVE=mysql\n")

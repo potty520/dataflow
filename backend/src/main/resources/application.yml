@@ -3,6 +3,7 @@ server:
   tomcat:
     threads:
       # 并发调优：工作线程 400、排队 1000；配合鉴权缓存后单请求基本不再查库
+      # 需要按机器调大时用环境变量覆盖：SERVER_TOMCAT_THREADS_MAX（如 4C8G 设 500）
       max: 400
     accept-count: 1000
     max-connections: 10000

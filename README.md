@@ -186,9 +186,11 @@ npm run dev        # http://localhost:5173，/api 与 /open 自动代理到 127.
 | 静态资源 1.3MB JS | 45 QPS | **2804 QPS**（nginx + gzip_static） |
 | 鉴权开销 | 3 次查库/请求 | **0 次**（鉴权缓存 + 黑名单内存化） |
 
-调优要点与扩容建议见 [并发容量报告](docs/并发容量报告.md)。
+调优要点与扩容建议见 [并发容量报告](docs/并发容量报告.md)；4C8G 测试机的完整部署与压测步骤见 [VM 测试部署清单](docs/VM测试部署清单.md)。
 
 ## 部署（Linux / 生产向）
+
+> 新虚拟机从零开始：在机器上执行 sudo bash deploy/vm_bootstrap.sh（装 JDK17/MySQL8/nginx/压测工具 + 建库导数据），再从开发机用 deploy/remote.py 推送 jar。完整步骤见 [VM 测试部署清单](docs/VM测试部署清单.md)。
 
 ```bash
 # 1) 构建（跳过测试；前端产物已在仓库内，如需重建：cd frontend && npm run build）
