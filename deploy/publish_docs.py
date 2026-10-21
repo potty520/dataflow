@@ -101,9 +101,6 @@ def main():
     dry = "--dry-run" in sys.argv
     msg = args[0] if args else DEFAULT_MSG
 
-    files = tracked_docs()
-    print("待发布文件数：%d（README + docs/** + 发布脚本）" % len(files))
-
     # 1) 本地提交（让工作区干净，便于 git push 与 API 比对）
     git("add", "-A", *PUBLISH_PATHS)
     dirty = git("status", "--porcelain").stdout.strip()
@@ -113,6 +110,10 @@ def main():
         print("本地提交：" + (c.stdout.strip().splitlines()[0] if c.stdout.strip() else msg))
     else:
         print("工作区无新增改动")
+
+    # 必须在 add 之后收集，否则本次新增的文件不在 git ls-files 结果里（曾漏推 sql/ 目录）
+    files = tracked_docs()
+    print("待发布文件数：%d（README + docs/** + sql/** + 发布脚本）" % len(files))
 
     # 与远端按内容比对，找出需要上传的文件
     remote, head, head_msg = remote_files_and_head()
