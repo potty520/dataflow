@@ -142,7 +142,10 @@ def main():
             content = base64.b64encode(fh.read()).decode()
         b = api("POST", "/repos/%s/git/blobs" % REPO, {"content": content, "encoding": "base64"})
         blobs.append({"path": f, "mode": "100644", "type": "blob", "sha": b["sha"]})
-    tree = api("POST", "/repos/%s/git/trees" % REPO, {"tree": blobs})
+    # 关键：必须带 base_tree，否则新树会覆盖掉仓库里其它所有文件（曾导致一次误删）
+    head_commit = api("GET", "/repos/%s/git/commits/%s" % (REPO, head))
+    tree = api("POST", "/repos/%s/git/trees" % REPO,
+               {"base_tree": head_commit["tree"]["sha"], "tree": blobs})
     commit = api("POST", "/repos/%s/git/commits" % REPO, {"message": msg, "tree": tree["sha"], "parents": [head]})
     api("PATCH", "/repos/%s/git/refs/heads/main" % REPO, {"sha": commit["sha"], "force": False})
     print("API 提交成功：%s" % commit["sha"][:7])
