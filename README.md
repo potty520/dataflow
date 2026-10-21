@@ -85,6 +85,7 @@ datagov/
 ├── frontend/                    # Vue 3 单页前端（构建产物输出到 backend static）
 ├── deploy/                      # 部署与运维脚本（SSH/MySQL/nginx，凭据走环境变量）
 ├── verify/                      # 接口鉴权矩阵 + 业务链路验收脚本
+├── sql/                         # 数据库脚本（MySQL 结构+初始化数据、H2/PG 结构）
 ├── docs/                        # API 清单、验收报告、并发容量报告、开发运维手册、截图
 └── verify.ps1                   # 冒烟回归（73 项断言）
 ```
@@ -105,8 +106,17 @@ java -jar target/dgp-boot.jar          # 默认 8080 端口，H2 文件库自动
 
 ### 方式二：MySQL 8 作为后台库
 
+**A. 直接导入仓库内的 SQL 脚本（无需运行应用建库）**
+
 ```bash
-# 1) 建库建账号并执行 MySQL DDL（脚本会自动生成/校验）
+mysql -u root -p -e "CREATE DATABASE dgp DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+mysql -u root -p dgp < sql/schema-mysql.sql       # 90 张表结构
+mysql -u root -p dgp < sql/init-data-mysql.sql    # 配置/主数据初始化（含演示账号，不含演示明细）
+```
+
+**B. 或用部署脚本自动建库并校验 DDL**
+
+```bash
 export DGP_SSH_HOST=127.0.0.1 DGP_SSH_USER=root DGP_SSH_PASS=***
 python deploy/setup_mysql.py
 
@@ -140,6 +150,7 @@ npm run dev        # http://localhost:5173，/api 与 /open 自动代理到 127.
 
 ## 接口与文档
 
+- 🗄️ **数据库脚本：[sql/README.md](sql/README.md)**（MySQL 结构 + 初始化数据 + H2/PG 结构）
 - 📚 **文档索引：[docs/README.md](docs/README.md)**
 - ⭐ **验收报告：[docs/验收报告-全功能验证.md](docs/验收报告-全功能验证.md)**（294 项断言全部通过）
 - **262 个 REST 接口**，完整清单见 [docs/API清单.md](docs/API清单.md)（含方法、路径、所需权限）。

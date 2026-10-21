@@ -68,7 +68,7 @@ def api(method, path, body=None):
 
 # ---------------- 收集要发布的文件 ----------------
 # 中文文件名必须关闭 git 的路径转义（core.quotepath=false），否则会得到 "\346\270\205..." 这样的串
-PUBLISH_PATHS = ["README.md", "docs", "deploy/publish_docs.py"]
+PUBLISH_PATHS = ["README.md", "docs", "sql", "deploy/publish_docs.py"]
 
 
 def tracked_docs():
