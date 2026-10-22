@@ -152,7 +152,10 @@ export const streamApi = {
   deleteRule: (id) => http.delete(`/api/v1/quality/stream/rules/${id}`),
   results: (params) => http.get('/api/v1/quality/stream/results', { params }),
   alerts: (params) => http.get('/api/v1/quality/stream/alerts', { params }),
-  handleAlert: (id) => http.post(`/api/v1/quality/stream/alerts/${id}/handle`)
+  handleAlert: (id) => http.post(`/api/v1/quality/stream/alerts/${id}/handle`),
+  pushConfig: (id) => http.get(`/api/v1/quality/stream/sources/${id}/push-config`),
+  savePushConfig: (id, data) => http.put(`/api/v1/quality/stream/sources/${id}/push-config`, data),
+  pushEvent: (code, data) => http.post(`/api/v1/quality/stream/push/${code}`, data)
 }
 
 export const migrationApi = {
@@ -169,12 +172,14 @@ export const migrationApi = {
   saveMappings: (id, mappings) => http.post(`/api/v1/migration/projects/${id}/mappings`, { mappings }),
   saveChecks: (id, checks) => http.post(`/api/v1/migration/projects/${id}/checks`, { checks }),
   precheck: (id) => http.post(`/api/v1/migration/projects/${id}/precheck`),
+  createTarget: (id) => http.post(`/api/v1/migration/projects/${id}/create-target`),
   statement: (id) => http.get(`/api/v1/migration/projects/${id}/statement`),
   run: (id, replace) => http.post(`/api/v1/migration/projects/${id}/run`, { replace: replace ? 1 : 0 }),
   runs: (id, params) => http.get(`/api/v1/migration/projects/${id}/runs`, { params }),
   runDetail: (runId) => http.get(`/api/v1/migration/runs/${runId}`),
   reconcile: (runId) => http.post(`/api/v1/migration/runs/${runId}/reconcile`),
-  diffs: (runId) => http.get(`/api/v1/migration/runs/${runId}/diffs`)
+  diffs: (runId) => http.get(`/api/v1/migration/runs/${runId}/diffs`),
+  rollbackRun: (runId) => http.post(`/api/v1/migration/runs/${runId}/rollback`)
 }
 export const securityApi = {
   sensitiveRules: () => http.get('/api/v1/security/sensitive/rules'),

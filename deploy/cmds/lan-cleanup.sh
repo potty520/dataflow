@@ -26,3 +26,14 @@ echo "=== 清理后 ==="
 q "SELECT CONCAT('md_table=', COUNT(*)) FROM md_table"
 q "SELECT CONCAT('users=', COUNT(*), ' rules=', (SELECT COUNT(*) FROM qa_rule), ' apis=', (SELECT COUNT(*) FROM svc_api), ' jobs=', (SELECT COUNT(*) FROM int_job)) FROM sys_user"
 q "SELECT CONCAT('ods_order=', COUNT(*), ' dwd_order_fact=', (SELECT COUNT(*) FROM dwd_order_fact), ' ods_customer=', (SELECT COUNT(*) FROM ods_customer)) FROM ods_order"
+
+echo "=== 清理 v1.3 验收残留 ==="
+for t in $(mysql -N -e "SELECT table_name FROM information_schema.tables WHERE table_schema='$DB' AND table_name LIKE 'zz\_mig\_verify%'"); do
+  mysql -e "DROP TABLE IF EXISTS $DB.$t"
+  echo "  dropped $t"
+done
+mysql $DB -e "DELETE FROM ods_device_metric WHERE id >= 900000"
+mysql $DB -e "DELETE FROM mig_project WHERE code LIKE 'MIG-BATCH-%' OR code LIKE 'MIG-VERIFY-%'"
+mysql $DB -e "DELETE FROM qa_stream_rule WHERE code LIKE 'SR-VERIFY-%'"
+mysql $DB -e "DELETE FROM qa_stream_push WHERE source_id NOT IN (SELECT id FROM qa_stream_source)"
+echo "=== v1.3 残留清理完成 ==="

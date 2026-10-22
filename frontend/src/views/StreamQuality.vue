@@ -55,6 +55,7 @@
           <template #default="{ row }">
             <el-button v-if="can('quality:stream:exec')" link type="primary" size="small" @click="runSource(row)">执行</el-button>
             <el-button v-if="can('quality:stream:exec')" link type="warning" size="small" @click="resetWatermark(row)">重置水位</el-button>
+            <el-button v-if="can('quality:stream:edit')" link type="primary" size="small" @click="openPush(row)">推送接入</el-button>
             <el-button v-if="can('quality:stream:create')" link type="primary" size="small" @click="openRule(row)">加规则</el-button>
             <el-button v-if="can('quality:stream:edit')" link type="danger" size="small" @click="delSource(row)">删除</el-button>
           </template>
@@ -178,6 +179,30 @@
       </el-form>
       <template #footer><el-button size="small" @click="ruleDialog = false">取消</el-button><el-button size="small" type="primary" @click="createRule">创建</el-button></template>
     </el-dialog>
+
+    <!-- 推送接入（Kafka/HTTP 生产者事件级实时校验） -->
+    <el-dialog v-model="pushDialog" title="流式推送接入配置" width="680px">
+      <el-form label-width="110px" size="small">
+        <el-form-item label="流源"><el-input :model-value="pushForm.sourceName" disabled /></el-form-item>
+        <el-form-item label="字段映射">
+          <el-input v-model="pushForm.fieldMapping" type="textarea" :rows="5"
+                    placeholder='JSON：表字段 -> 报文键名，例如 {"device_id":"deviceId","metric_value":"value"}' />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-switch v-model="pushForm.enabled" active-text="启用" inactive-text="停用" />
+        </el-form-item>
+        <el-form-item label="接口地址">
+          <el-input :model-value="'POST /api/v1/quality/stream/push/' + pushForm.code" readonly />
+        </el-form-item>
+        <el-alert type="info" :closable="false" show-icon
+                  title="Kafka 消费者/外部系统只需把消息体按映射 POST 到该地址即可实现事件级实时质检；流源需配置主键字段（pk_col）。" />
+      </el-form>
+      <template #footer>
+        <el-button size="small" @click="pushDialog = false">关闭</el-button>
+        <el-button size="small" :disabled="!can('quality:stream:exec')" @click="simulatePush">模拟推送一条</el-button>
+        <el-button size="small" type="primary" :disabled="!can('quality:stream:edit')" @click="savePush">保存配置</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -299,6 +324,39 @@ async function createSource() {
     sourceDialog.value = false
     loadAll()
   } catch (e) { ElMessage.error(e.message || '创建失败') }
+}
+
+const pushDialog = ref(false)
+const pushForm = reactive({ sourceId: null, sourceName: '', code: '', fieldMapping: '', enabled: true })
+async function openPush(row) {
+  Object.assign(pushForm, { sourceId: row.id, sourceName: row.name, code: row.code, fieldMapping: '', enabled: true })
+  try {
+    const cfg = await streamApi.pushConfig(row.id)
+    if (cfg) { pushForm.fieldMapping = cfg.fieldMapping || ''; pushForm.enabled = cfg.status === 'ENABLED' }
+  } catch (e) { /* 未配置时不报错 */ }
+  pushDialog.value = true
+}
+async function savePush() {
+  try {
+    await streamApi.savePushConfig(pushForm.sourceId, { fieldMapping: pushForm.fieldMapping, status: pushForm.enabled ? 'ENABLED' : 'DISABLED' })
+    ElMessage.success('推送配置已保存')
+    pushDialog.value = false
+    loadAll()
+  } catch (e) { ElMessage.error(e.message || '保存失败') }
+}
+async function simulatePush() {
+  try {
+    const now = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    const r = await streamApi.pushEvent(pushForm.code, {
+      id: 900000 + Math.floor(Math.random() * 90000),
+      deviceId: 'DEV-PUSH-01', deviceName: '推送测试设备', workshop: '推送车间',
+      metricName: 'push_metric', value: 999.9, unit: 'unit', collectTime: ts
+    })
+    ElMessage[`${r.failedRules ? 'warning' : 'success'}`](`已推送：规则 ${r.ruleCount} 条，失败 ${r.failedRules || 0}`)
+    loadAll()
+  } catch (e) { ElMessage.error(e.message || '推送失败') }
 }
 
 const ruleDialog = ref(false)

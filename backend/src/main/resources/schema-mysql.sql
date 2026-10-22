@@ -1082,11 +1082,11 @@ CREATE TABLE IF NOT EXISTS sys_dict (
 -- 热查询索引
 
 -- ============================================================
--- v1.2 新增：流式（微批）数据质检 + 数据迁移映射
+-- v1.2 / v1.3 新增：流式（微批+推送）数据质检 + 数据迁移映射
 -- 语法保持 H2(PostgreSQL 模式) / PostgreSQL / MySQL 三向兼容
 -- ============================================================
 
--- ---------------------------- 流式质检（微批窗口） dgp-quality ----------------------------
+-- ---------------------------- 流式质检 dgp-quality ----------------------------
 CREATE TABLE IF NOT EXISTS qa_stream_source (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     tenant_id BIGINT DEFAULT 1,
@@ -1095,6 +1095,8 @@ CREATE TABLE IF NOT EXISTS qa_stream_source (
     table_name VARCHAR(128) NOT NULL,
     watermark_col VARCHAR(64) NOT NULL,
     watermark_type VARCHAR(16) DEFAULT 'DATETIME',
+    source_type VARCHAR(16) DEFAULT 'TABLE',
+    pk_col VARCHAR(64),
     window_seconds INT DEFAULT 60,
     batch_limit INT DEFAULT 5000,
     status VARCHAR(16) DEFAULT 'ENABLED',
@@ -1153,6 +1155,17 @@ CREATE TABLE IF NOT EXISTS qa_stream_alert (
     KEY idx_qa_stream_alert_status (status, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS qa_stream_push (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_id BIGINT NOT NULL UNIQUE,
+    field_mapping TEXT,
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    push_count BIGINT DEFAULT 0,
+    last_push_time DATETIME,
+    create_time DATETIME,
+    KEY idx_qa_stream_push_src (source_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- ---------------------------- 数据迁移映射 dgp-migration ----------------------------
 CREATE TABLE IF NOT EXISTS mig_project (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1165,6 +1178,8 @@ CREATE TABLE IF NOT EXISTS mig_project (
     watermark_col VARCHAR(64),
     last_watermark VARCHAR(64),
     replace_target INT DEFAULT 1,
+    batch_size INT DEFAULT 5000,
+    rollback_on_fail INT DEFAULT 0,
     status VARCHAR(16) DEFAULT 'DRAFT',
     description VARCHAR(500),
     last_run_time DATETIME,
@@ -1202,6 +1217,10 @@ CREATE TABLE IF NOT EXISTS mig_run (
     status VARCHAR(16) DEFAULT 'RUNNING',
     start_time DATETIME,
     end_time DATETIME,
+    start_watermark VARCHAR(64),
+    end_watermark VARCHAR(64),
+    chunk_count INT DEFAULT 0,
+    rollback_status VARCHAR(16),
     source_rows BIGINT DEFAULT 0,
     target_rows BIGINT DEFAULT 0,
     inserted_rows BIGINT DEFAULT 0,

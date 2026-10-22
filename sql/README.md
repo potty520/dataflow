@@ -42,3 +42,13 @@ bash deploy/cmds/gen-sql.sh
 ```
 
 > 注意：`init-data-mysql.sql` 已剔除审计/登录/操作日志、任务实例、调用日志等运行时数据，避免携带访问 IP 等环境信息。
+
+## 已有数据库升级（v1.2 → v1.3）
+
+已按 v1.2 建库的环境，执行一次升级脚本即可（新增流式推送配置表，以及迁移分批/回滚、流源推送所需的列）：
+
+```bash
+mysql -u root -p dgp < sql/upgrade-v1.2-to-v1.3.sql
+```
+
+新建库直接使用上面的 `schema-mysql.sql`（已包含全部 87 张表）。

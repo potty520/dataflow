@@ -61,6 +61,7 @@
           <el-tag size="small" effect="plain">{{ current.mode }}</el-tag>
           <el-tag size="small" effect="plain">{{ current.sourceTable }} → {{ current.targetTable }}</el-tag>
           <el-button v-if="can('migration:project:view')" size="small" @click="precheck">预检</el-button>
+          <el-button v-if="can('migration:project:edit')" size="small" @click="createTarget">一键建表</el-button>
           <el-button v-if="can('migration:project:exec')" size="small" type="danger" @click="runMigration">执行迁移</el-button>
           <el-switch v-model="replaceTarget" active-text="执行前清空目标表" size="small" />
         </div>
@@ -140,9 +141,15 @@
             <el-table-column prop="insertedRows" label="写入行数" width="100" />
             <el-table-column prop="targetRows" label="目标行数" width="100" />
             <el-table-column prop="message" label="说明" min-width="180" show-overflow-tooltip />
-            <el-table-column label="操作" width="110">
+            <el-table-column label="批次信息" min-width="200" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span class="hint">水位 {{ row.startWatermark || '-' }} → {{ row.endWatermark || '-' }} · {{ row.chunkCount || 0 }} 批</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="150">
               <template #default="{ row }">
                 <el-button v-if="can('migration:project:reconcile')" link type="primary" size="small" @click="reconcile(row)">对账</el-button>
+                <el-button v-if="can('migration:project:exec')" link type="warning" size="small" @click="rollback(row)">回滚</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -186,6 +193,14 @@
         </el-form-item>
         <el-form-item label="水位字段"><el-input v-model="form.watermarkCol" placeholder="增量模式必填，如 update_time" /></el-form-item>
         <el-form-item label="执行前清空"><el-switch v-model="form.replaceTargetBool" /></el-form-item>
+        <el-form-item label="分批大小">
+          <el-input-number v-model="form.batchSize" :min="100" :max="100000" :step="1000" />
+          <span class="hint" style="margin-left:8px">增量模式按水位分批提交（断点续传）</span>
+        </el-form-item>
+        <el-form-item label="失败自动回滚">
+          <el-switch v-model="form.rollbackOnFailBool" />
+          <span class="hint" style="margin-left:8px">增量模式失败时删除本批次已写入数据</span>
+        </el-form-item>
         <el-form-item label="说明"><el-input v-model="form.description" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer><el-button size="small" @click="dialog = false">取消</el-button><el-button size="small" type="primary" @click="createProject">创建</el-button></template>
@@ -216,7 +231,7 @@ const replaceTarget = ref(true)
 const query = reactive({ keyword: '', status: '' })
 const dialog = ref(false)
 const tableOptions = ref([])
-const form = reactive({ code: '', name: '', sourceTable: '', targetTable: '', mode: 'FULL', watermarkCol: '', replaceTargetBool: true, description: '' })
+const form = reactive({ code: '', name: '', sourceTable: '', targetTable: '', mode: 'FULL', watermarkCol: '', replaceTargetBool: true, batchSize: 5000, rollbackOnFailBool: false, description: '' })
 
 const fmt = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const sampleColumns = computed(() => (pre.value.sample && pre.value.sample.length ? Object.keys(pre.value.sample[0]) : []))
@@ -277,6 +292,21 @@ async function runMigration() {
     await selectProject({ id: current.value.id })
   } catch (e) { ElMessage.error('迁移失败：' + (e.message || '')) }
 }
+async function createTarget() {
+  if (!current.value) return
+  const r = await migrationApi.createTarget(current.value.id)
+  ElMessage.success(r.created ? '已按映射创建目标表' : (r.message || '目标表已存在'))
+  pre.value = { ok: false }
+  await precheck()
+}
+async function rollback(row) {
+  await ElMessageBox.confirm(`确认回滚批次 #${row.id}？将删除起始水位之后的写入。`, '提示', { type: 'warning' })
+  try {
+    const r = await migrationApi.rollbackRun(row.id)
+    ElMessage.success(`已回滚：删除 ${r.deletedRows} 行，水位恢复到 ${r.restoredWatermark}`)
+    await selectProject({ id: current.value.id })
+  } catch (e) { ElMessage.error(e.message || '回滚失败') }
+}
 async function reconcile(row) {
   const r = await migrationApi.reconcile(row.id)
   diffs.value = r.diffs || []
@@ -292,12 +322,12 @@ async function delProject(row) {
 }
 async function openProject() {
   if (!tableOptions.value.length) tableOptions.value = ((await migrationApi.tables()) || {}).records || []
-  Object.assign(form, { code: '', name: '', sourceTable: '', targetTable: '', mode: 'FULL', watermarkCol: '', replaceTargetBool: true, description: '' })
+  Object.assign(form, { code: '', name: '', sourceTable: '', targetTable: '', mode: 'FULL', watermarkCol: '', replaceTargetBool: true, batchSize: 5000, rollbackOnFailBool: false, description: '' })
   dialog.value = true
 }
 async function createProject() {
   try {
-    await migrationApi.createProject({ ...form, replaceTarget: form.replaceTargetBool ? 1 : 0 })
+    await migrationApi.createProject({ ...form, replaceTarget: form.replaceTargetBool ? 1 : 0, rollbackOnFail: form.rollbackOnFailBool ? 1 : 0 })
     ElMessage.success('已创建迁移项目')
     dialog.value = false
     loadAll()

@@ -71,9 +71,12 @@ Section "M2. 数据迁移映射"
 $mov = D (C "GET" "/api/v1/migration/overview" $HA $null)
 Check "迁移概览 -> 200 且含项目/映射计数" (($null -ne $mov.projectCount) -and ($null -ne $mov.mappingCount)) ("projects=" + $mov.projectCount + " mappings=" + $mov.mappingCount)
 
-$projs = D (C "GET" "/api/v1/migration/projects?pageSize=20" $HA $null)
+$projs = D (C "GET" "/api/v1/migration/projects?pageSize=50" $HA $null)
 Check "迁移项目 -> 至少 2 个" ($projs.total -ge 2) ("total=" + $projs.total)
-$proj = $projs.records[0]
+# 固定使用演示项目（避免受验收过程中临时项目影响）
+$proj = $projs.records | Where-Object { $_.code -eq "MIG-ORDER-FACT" } | Select-Object -First 1
+if (-not $proj) { $proj = $projs.records | Where-Object { $_.checkCount -ge 1 } | Select-Object -First 1 }
+if (-not $proj) { $proj = $projs.records[0] }
 $projId = $proj.id
 $detail = D (C "GET" ("/api/v1/migration/projects/" + $projId) $HA $null)
 Check "项目详情含映射与对账项" (($detail.mappings.Count -ge 5) -and ($detail.checks.Count -ge 1)) ("mappings=" + $detail.mappings.Count + " checks=" + $detail.checks.Count)
@@ -117,6 +120,56 @@ Check "源表与目标表相同 -> 400" ((C "POST" "/api/v1/migration/projects" 
 Check "删除验收项目 -> 200" ((C "DELETE" ("/api/v1/migration/projects/" + $newId) $HA $null).s -eq 200) ""
 Check "分析师无迁移项目权限 -> 403" ((C "GET" "/api/v1/migration/projects" $HN $null).s -eq 403) ""
 Check "分析师不能执行迁移 -> 403" ((C "POST" ("/api/v1/migration/projects/" + $projId + "/run") $HN '{"replace":0}').s -eq 403) ""
+
+
+# ================= 实时推送接入（v1.3） =================
+Section "M3. 流式实时推送接入"
+$pushSrc = $srcs.records | Where-Object { $_.code -eq "SS-DEVICE-METRIC" } | Select-Object -First 1
+if (-not $pushSrc) { $pushSrc = $src0 }
+$pc = C "GET" ("/api/v1/quality/stream/sources/" + $pushSrc.id + "/push-config") $HA $null
+Check "推送配置可查询 -> 200" ($pc.s -eq 200) ""
+$mappingJson = '{\"id\":\"id\",\"device_id\":\"deviceId\",\"device_name\":\"deviceName\",\"workshop\":\"workshop\",\"metric_name\":\"metricName\",\"metric_value\":\"value\",\"unit\":\"unit\",\"collect_time\":\"collectTime\"}'
+$sp = C "PUT" ("/api/v1/quality/stream/sources/" + $pushSrc.id + "/push-config") $HA ('{"fieldMapping":' + $mappingJson.Replace('\"','"') + ',"status":"ENABLED"}')
+Check "保存推送配置 -> 200" ($sp.s -eq 200) ""
+$now = Get-Date
+$ts = $now.ToString("yyyy-MM-dd HH:mm:ss")
+$eventId = 900000 + (Get-Random -Maximum 90000)
+$evBody = '{"id":' + $eventId + ',"deviceId":"DEV-PUSH-VERIFY","deviceName":"推送验收设备","workshop":"推送车间","metricName":"push_metric","value":999.9,"unit":"u","collectTime":"' + $ts + '"}'
+$pe = C "POST" ("/api/v1/quality/stream/push/" + $pushSrc.code) $HA $evBody
+$ped = D $pe
+Check "实时推送事件 -> 200 且逐规则判定" (($pe.s -eq 200) -and ($ped.ruleCount -ge 1)) ("rules=" + $ped.ruleCount + " failed=" + $ped.failedRules)
+Check "推送事件命中越界规则（999.9 > 200）" ($ped.failedRules -ge 1) ("failed=" + $ped.failedRules)
+Check "推送不存在的流源 -> 404" ((C "POST" "/api/v1/quality/stream/push/SS-NOT-EXIST" $HA $evBody).s -eq 404) ""
+Check "推送报文缺少主键 -> 400" ((C "POST" ("/api/v1/quality/stream/push/" + $pushSrc.code) $HA '{"deviceId":"X","value":1}').s -eq 400) ""
+Check "推送结果已入窗口结果表" ((D (C "GET" ("/api/v1/quality/stream/results?ruleId=" + $ped.results[0].ruleId + "&pageSize=5") $HA $null)).total -ge 1) ""
+
+# ================= 迁移分批 / 断点续传 / 回滚（v1.3） =================
+Section "M4. 迁移分批执行与回滚"
+$verCode = "MIG-BATCH-" + (Get-Random -Maximum 99999)
+$target = "zz_mig_verify_" + (Get-Random -Maximum 999999)
+$np = C "POST" "/api/v1/migration/projects" $HA ('{"code":"' + $verCode + '","name":"验收-分批迁移","sourceTable":"ods_order","targetTable":"' + $target + '","mode":"INCREMENTAL","watermarkCol":"order_time","batchSize":2000,"rollbackOnFail":1}')
+Check "创建增量迁移项目（分批 2000）-> 200" ($np.s -eq 200) ""
+$newProj = (D $np).id
+$mapBody = '{"mappings":[{"sourceColumn":"order_id","targetColumn":"k"},{"sourceColumn":"amount","targetColumn":"amt"},{"sourceColumn":"order_time","targetColumn":"ts","targetType":"datetime"}]}'
+Check "保存映射 -> 200" ((C "POST" ("/api/v1/migration/projects/" + $newProj + "/mappings") $HA $mapBody).s -eq 200) ""
+$ct = C "POST" ("/api/v1/migration/projects/" + $newProj + "/create-target") $HA $null
+Check "一键按映射建目标表 -> 200 且 created" (($ct.s -eq 200) -and ((D $ct).created -eq $true)) ("target=" + $target)
+$runB = C "POST" ("/api/v1/migration/projects/" + $newProj + "/run") $HA '{"replace":0,"batchSize":2000}'
+$runBd = D $runB
+Check "增量分批执行 -> 200 且分多批" (($runB.s -eq 200) -and ($runBd.chunkCount -ge 2)) ("chunks=" + $runBd.chunkCount + " inserted=" + $runBd.insertedRows)
+Check "分批执行记录起止水位" (($null -ne $runBd.endWatermark) -and ($runBd.endWatermark -ne "")) ("end=" + $runBd.endWatermark)
+$rb = C "POST" ("/api/v1/migration/runs/" + $runBd.runId + "/rollback") $HA $null
+$rbd = D $rb
+Check "回滚增量批次 -> 200 且删除行数>0" (($rb.s -eq 200) -and ($rbd.deletedRows -gt 0)) ("deleted=" + $rbd.deletedRows)
+$fullProjs = @((D (C "GET" "/api/v1/migration/projects?status=DONE&pageSize=20" $HA $null)).records)
+$fullProj = $fullProjs | Where-Object { $_.mode -eq "FULL" } | Select-Object -First 1
+if ($fullProj) {
+    $fr = C "POST" ("/api/v1/migration/projects/" + $fullProj.id + "/run") $HA '{"replace":1}'
+    $frd = D $fr
+    Check "全量批次回滚 -> 400（无起始水位）" ((C "POST" ("/api/v1/migration/runs/" + $frd.runId + "/rollback") $HA $null).s -eq 400) ""
+} else { Check "全量批次回滚 -> 400（无起始水位）" $false "缺少 FULL 项目" }
+Check "清理验收迁移项目 -> 200" ((C "DELETE" ("/api/v1/migration/projects/" + $newProj) $HA $null).s -eq 200) ""
+
 
 Write-Output ""
 Write-Output ("===== 流式质检 + 数据迁移 汇总：PASS=" + $script:pass + "  FAIL=" + $script:fail + " =====")

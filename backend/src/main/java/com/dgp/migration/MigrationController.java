@@ -102,10 +102,11 @@ public class MigrationController {
         String wm = Req.str(b.get("watermarkCol"));
         if (wm != null && !wm.isBlank()) Db.identifier(wm);
         long id = db.insert("INSERT INTO mig_project(tenant_id,code,name,source_table,target_table,mode,watermark_col,"
-                        + "replace_target,status,description,owner,create_time,update_time) "
-                        + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        + "replace_target,batch_size,rollback_on_fail,status,description,owner,create_time,update_time) "
+                        + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 1L, code, Req.str(b.getOrDefault("name", code)), source, target, mode,
                 (wm == null || wm.isBlank()) ? null : wm, Req.toInt(b.get("replaceTarget"), 1),
+                Req.toInt(b.get("batchSize"), 5000), Req.toInt(b.get("rollbackOnFail"), 0),
                 Req.str(b.getOrDefault("status", "DRAFT")), Req.str(b.get("description")),
                 AuthContext.username(), LocalDateTime.now(), LocalDateTime.now());
         return Result.ok(M.of("id", id));
@@ -120,11 +121,13 @@ public class MigrationController {
         String mode = "INCREMENTAL".equalsIgnoreCase(String.valueOf(pick(b, before, "mode"))) ? "INCREMENTAL" : "FULL";
         String wm = Req.str(pick(b, before, "watermarkCol"));
         db.update("UPDATE mig_project SET name=?,source_table=?,target_table=?,mode=?,watermark_col=?,"
-                        + "replace_target=?,status=?,description=?,update_time=? WHERE id=?",
+                        + "replace_target=?,batch_size=?,rollback_on_fail=?,status=?,description=?,update_time=? WHERE id=?",
                 pick(b, before, "name"), source, target, mode,
                 (wm == null || wm.isBlank()) ? null : Db.identifier(wm),
-                Req.toInt(pick(b, before, "replaceTarget"), 1), pick(b, before, "status"),
-                pick(b, before, "description"), LocalDateTime.now(), id);
+                Req.toInt(pick(b, before, "replaceTarget"), 1),
+                Req.toInt(pick(b, before, "batchSize"), 5000),
+                Req.toInt(pick(b, before, "rollbackOnFail"), 0),
+                pick(b, before, "status"), pick(b, before, "description"), LocalDateTime.now(), id);
         return Result.ok(M.of("id", id));
     }
 
@@ -198,11 +201,27 @@ public class MigrationController {
         return Result.ok(service.statement(id));
     }
 
+
+    /** 按字段映射一键创建目标表（目标表不存在时使用）。 */
+    @PostMapping("/projects/{id}/create-target")
+    @RequirePerm("migration:project:edit")
+    public Result<Object> createTarget(@PathVariable long id) {
+        return Result.ok(service.createTargetTable(id));
+    }
+
     @PostMapping("/projects/{id}/run")
     @RequirePerm("migration:project:exec")
     public Result<Object> run(@PathVariable long id, @RequestBody(required = false) Map<String, Object> b) {
         boolean replace = b == null || Req.toInt(b.getOrDefault("replace", 1), 1) == 1;
-        return Result.ok(service.run(id, replace, AuthContext.username()));
+        int batchSize = b == null ? 0 : Req.toInt(b.get("batchSize"), 0);
+        return Result.ok(service.run(id, replace, batchSize, AuthContext.username()));
+    }
+
+    /** 回滚增量批次（删除该批次起始水位之后的写入）。 */
+    @PostMapping("/runs/{runId}/rollback")
+    @RequirePerm("migration:project:exec")
+    public Result<Object> rollback(@PathVariable long runId) {
+        return Result.ok(service.rollback(runId));
     }
 
     @GetMapping("/projects/{id}/runs")

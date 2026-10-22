@@ -317,8 +317,20 @@ public class MigrationService {
         return "'" + (v == null ? "" : v.replace("'", "''")) + "'";
     }
 
-    // ------------------------------------------------------------ 执行
-    public Map<String, Object> run(long projectId, boolean replace, String operator) {
+    /** 水位值统一转字符串：LocalDateTime 用 "yyyy-MM-dd HH:mm:ss"，避免写出带 T 的 ISO 串。 */
+    private static String wmText(Object v) {
+        if (v == null) return null;
+        if (v instanceof java.time.LocalDateTime ldt) {
+            return ldt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
+        if (v instanceof java.time.LocalDate ld) {
+            return ld.atStartOfDay().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
+        return String.valueOf(v);
+    }
+
+    // ------------------------------------------------------------ 执行（分批 / 断点续传 / 失败回滚）
+    public Map<String, Object> run(long projectId, boolean replace, int batchSize, String operator) {
         Map<String, Object> p = requireProject(projectId);
         String source = Db.identifier(String.valueOf(p.get("sourceTable")));
         String target = Db.identifier(String.valueOf(p.get("targetTable")));
@@ -330,64 +342,181 @@ public class MigrationService {
         for (Map<String, Object> m : mappings) {
             targets.add(Db.identifier(String.valueOf(m.get("targetColumn"))));
         }
-        String where = "";
-        Object[] whereArgs = new Object[]{};
+        boolean incremental = "INCREMENTAL".equalsIgnoreCase(String.valueOf(p.get("mode")));
         String wm = Db.str(p.get("watermarkCol"));
-        if ("INCREMENTAL".equalsIgnoreCase(String.valueOf(p.get("mode"))) && wm != null && !wm.isBlank()) {
-            Object last = p.get("lastWatermark");
-            if (last != null && !String.valueOf(last).isBlank()) {
-                where = " WHERE " + Db.identifier(wm) + " > ?";
-                whereArgs = new Object[]{last};
-            }
+        if (incremental && (wm == null || wm.isBlank())) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "增量模式必须配置水位字段");
         }
-        long sourceRows = db.count("SELECT COUNT(*) FROM " + source + where, whereArgs);
+        String wmId = incremental ? Db.identifier(wm) : null;
+        int bs = (int) Math.max(1L, Math.min(batchSize <= 0 ? Db.longVal(p.get("batchSize"), 5000) : (long) batchSize, 100000L));
+        boolean rollbackOnFail = Db.longVal(p.get("rollbackOnFail"), 0) == 1;
+        String startWm = incremental ? Db.str(p.get("lastWatermark")) : null;
 
-        long runId = db.insert("INSERT INTO mig_run(project_id,run_mode,status,start_time,source_rows,operator) "
-                + "VALUES(?,?,'RUNNING',?,?,?)", projectId, "MANUAL", LocalDateTime.now(), sourceRows, operator);
+        long sourceRows = incremental
+                ? (startWm == null ? db.count("SELECT COUNT(*) FROM " + source)
+                : db.count("SELECT COUNT(*) FROM " + source + " WHERE " + wmId + " > ?", startWm))
+                : db.count("SELECT COUNT(*) FROM " + source);
+
+        long runId = db.insert("INSERT INTO mig_run(project_id,run_mode,status,start_time,source_rows,operator,start_watermark) "
+                        + "VALUES(?,?,'RUNNING',?,?,?,?)",
+                projectId, "MANUAL", LocalDateTime.now(), sourceRows, operator, startWm);
         long inserted = 0;
+        int chunks = 0;
+        String endWm = startWm;
         String status = "DONE";
         String message = "";
+        boolean rolledBack = false;
         try {
-            if (replace || (Db.longVal(p.get("replaceTarget"), 1) == 1
-                    && "FULL".equalsIgnoreCase(String.valueOf(p.get("mode"))))) {
+            if (replace && !incremental) {
                 db.update("DELETE FROM " + target);
             }
-            long before = db.count("SELECT COUNT(*) FROM " + target);
-            String sql = "INSERT INTO " + target + " (" + String.join(",", targets) + ") SELECT "
-                    + selectList(mappings) + " FROM " + source + where;
-            int affected = db.update(sql, whereArgs);
-            long after = db.count("SELECT COUNT(*) FROM " + target);
-            inserted = affected > 0 ? affected : Math.max(0, after - before);
-            message = "写入成功";
-            // 增量模式记录水位
-            if ("INCREMENTAL".equalsIgnoreCase(String.valueOf(p.get("mode"))) && wm != null && !wm.isBlank()) {
-                Object max = db.scalar("SELECT MAX(" + Db.identifier(wm) + ") FROM " + source);
-                db.update("UPDATE mig_project SET last_watermark=?,last_run_time=?,status='DONE',update_time=? WHERE id=?",
-                        max == null ? null : String.valueOf(max), LocalDateTime.now(), LocalDateTime.now(), projectId);
+            if (!incremental) {
+                inserted = db.update("INSERT INTO " + target + " (" + String.join(",", targets) + ") SELECT "
+                        + selectList(mappings) + " FROM " + source);
+                chunks = 1;
             } else {
-                db.update("UPDATE mig_project SET last_run_time=?,status='DONE',update_time=? WHERE id=?",
-                        LocalDateTime.now(), LocalDateTime.now(), projectId);
+                String from = startWm;
+                while (true) {
+                    String chunkSql = "SELECT MAX(" + wmId + ") FROM (SELECT " + wmId + " FROM " + source
+                            + (from == null ? "" : " WHERE " + wmId + " > ?")
+                            + " ORDER BY " + wmId + " LIMIT " + bs + ") t";
+                    Object chunkMaxObj = from == null ? db.scalar(chunkSql) : db.scalar(chunkSql, from);
+                    if (chunkMaxObj == null) break;
+                    String chunkMax = wmText(chunkMaxObj);
+                    int affected = from == null
+                            ? db.update("INSERT INTO " + target + " (" + String.join(",", targets) + ") SELECT "
+                            + selectList(mappings) + " FROM " + source + " WHERE " + wmId + " <= ?", chunkMax)
+                            : db.update("INSERT INTO " + target + " (" + String.join(",", targets) + ") SELECT "
+                            + selectList(mappings) + " FROM " + source + " WHERE " + wmId + " > ? AND " + wmId + " <= ?",
+                            from, chunkMax);
+                    inserted += affected;
+                    chunks++;
+                    endWm = chunkMax;
+                    from = chunkMax;
+                    db.update("UPDATE mig_project SET last_watermark=? WHERE id=?", chunkMax, projectId);
+                    if (affected == 0) break;
+                }
             }
+            db.update("UPDATE mig_project SET last_run_time=?,status='DONE',update_time=? WHERE id=?",
+                    LocalDateTime.now(), LocalDateTime.now(), projectId);
+            message = "写入成功" + (incremental ? "（分 " + chunks + " 批）" : "");
         } catch (Exception e) {
             log.warn("数据迁移执行失败 project={}: {}", projectId, e.getMessage());
             status = "FAILED";
             message = e.getMessage() == null ? "执行失败" : e.getMessage();
+            if (rollbackOnFail && incremental) {
+                try {
+                    long deleted;
+                    if (startWm != null) {
+                        deleted = db.update("DELETE FROM " + target + " WHERE " + wmId + " > ?", startWm);
+                    } else if (endWm != null) {
+                        deleted = db.update("DELETE FROM " + target + " WHERE " + wmId + " <= ?", endWm);
+                    } else {
+                        deleted = db.update("DELETE FROM " + target);
+                    }
+                    rolledBack = true;
+                    message += "；已回滚本次写入 " + deleted + " 行";
+                } catch (Exception re) {
+                    message += "；回滚失败：" + re.getMessage();
+                }
+            }
         }
-        long targetRows = 0;
+        long targetRows;
         try {
             targetRows = db.count("SELECT COUNT(*) FROM " + target);
-        } catch (Exception ignore) {
-            // 目标表可能未建
+        } catch (Exception e) {
+            targetRows = 0;
         }
-        db.update("UPDATE mig_run SET status=?,end_time=?,target_rows=?,inserted_rows=?,failed_rows=?,message=? WHERE id=?",
-                status, LocalDateTime.now(), targetRows, inserted, "DONE".equals(status) ? 0 : Math.max(0, sourceRows - inserted),
-                message.length() > 480 ? message.substring(0, 480) : message, runId);
+        db.update("UPDATE mig_run SET status=?,end_time=?,target_rows=?,inserted_rows=?,failed_rows=?,message=?,"
+                        + "start_watermark=?,end_watermark=?,chunk_count=?,rollback_status=? WHERE id=?",
+                status, LocalDateTime.now(), targetRows, inserted,
+                "DONE".equals(status) ? 0 : Math.max(0, sourceRows - inserted),
+                message.length() > 480 ? message.substring(0, 480) : message,
+                startWm, endWm, chunks, rolledBack ? "ROLLED_BACK" : null, runId);
         if ("FAILED".equals(status)) {
             db.update("UPDATE mig_project SET status='FAILED',update_time=? WHERE id=?", LocalDateTime.now(), projectId);
             throw new BizException(ErrorCode.SQL_INVALID, "迁移执行失败：" + message);
         }
         return M.of("runId", runId, "projectId", projectId, "status", status, "sourceRows", sourceRows,
-                "targetRows", targetRows, "insertedRows", inserted, "message", message);
+                "targetRows", targetRows, "insertedRows", inserted, "chunkCount", chunks,
+                "startWatermark", startWm, "endWatermark", endWm, "message", message);
+    }
+
+    /** 回滚：仅增量模式且记录了起始水位的批次，删除该水位之后的写入并恢复项目水位。 */
+    public Map<String, Object> rollback(long runId) {
+        Map<String, Object> run = db.one("SELECT * FROM mig_run WHERE id=?", runId);
+        if (run == null) throw new BizException(ErrorCode.NOT_FOUND, "迁移批次不存在");
+        long projectId = Db.longVal(run.get("projectId"), 0L);
+        Map<String, Object> p = requireProject(projectId);
+        String wm = Db.str(p.get("watermarkCol"));
+        if (wm == null || wm.isBlank()) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "仅增量模式支持回滚");
+        }
+        String start = Db.str(run.get("startWatermark"));
+        String end = Db.str(run.get("endWatermark"));
+        if ((start == null || start.isBlank()) && (end == null || end.isBlank())) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "该批次未记录水位区间，无法回滚");
+        }
+        String target = Db.identifier(String.valueOf(p.get("targetTable")));
+        // 水位字段在映射中可能被改名（如 order_time -> ts），按映射解析目标端实际列名
+        String targetWm = null;
+        for (Map<String, Object> mm : db.list(
+                "SELECT * FROM mig_mapping WHERE project_id=? ORDER BY sort_no,id", projectId)) {
+            String sc = Db.str(mm.get("sourceColumn"));
+            if (sc != null && sc.equalsIgnoreCase(wm)) {
+                targetWm = Db.str(mm.get("targetColumn"));
+                break;
+            }
+        }
+        if (targetWm == null) {
+            throw new BizException(ErrorCode.PARAM_INVALID,
+                    "字段映射需包含水位字段 " + wm + " 才能按水位回滚");
+        }
+        String wmId = Db.identifier(targetWm);
+        boolean hasWmCol = false;
+        for (Map<String, Object> c : columnsOf(target)) {
+            if (String.valueOf(c.get("name")).equalsIgnoreCase(targetWm)) {
+                hasWmCol = true;
+                break;
+            }
+        }
+        if (!hasWmCol) {
+            throw new BizException(ErrorCode.PARAM_INVALID,
+                    "目标表缺少水位字段 " + targetWm + "，无法按水位回滚；请检查字段映射");
+        }
+        int deleted;
+        if (start != null && !start.isBlank()) {
+            deleted = db.update("DELETE FROM " + target + " WHERE " + wmId + " > ?", start);
+        } else {
+            // 首个增量批次：目标表在本次执行前应为空，回滚=删除该区间内的数据
+            deleted = db.update("DELETE FROM " + target + " WHERE " + wmId + " <= ?", end);
+        }
+        db.update("UPDATE mig_run SET rollback_status='ROLLED_BACK' WHERE id=?", runId);
+        db.update("UPDATE mig_project SET last_watermark=?,status='READY',update_time=? WHERE id=?",
+                start == null || start.isBlank() ? null : start, LocalDateTime.now(), projectId);
+        return M.of("runId", runId, "deletedRows", deleted,
+                "restoredWatermark", start == null || start.isBlank() ? null : start,
+                "rollbackStatus", "ROLLED_BACK");
+    }
+
+
+    /** 按映射生成并执行目标表 DDL（目标表不存在时使用，表名/列名均经标识符校验）。 */
+    public Map<String, Object> createTargetTable(long projectId) {
+        Map<String, Object> p = requireProject(projectId);
+        String target = Db.identifier(String.valueOf(p.get("targetTable")));
+        if (!columnsOf(target).isEmpty()) {
+            return M.of("created", false, "targetTable", target, "message", "目标表已存在，无需创建");
+        }
+        List<Map<String, Object>> mappings = db.list(
+                "SELECT * FROM mig_mapping WHERE project_id=? ORDER BY sort_no,id", projectId);
+        if (mappings.isEmpty()) throw new BizException(ErrorCode.PARAM_INVALID, "尚未配置字段映射");
+        String ddl = suggestDdl(target, mappings);
+        try {
+            db.update(ddl);
+        } catch (Exception e) {
+            throw new BizException(ErrorCode.SQL_INVALID, "建表失败：" + e.getMessage());
+        }
+        return M.of("created", true, "targetTable", target, "ddl", ddl);
     }
 
     // ------------------------------------------------------------ 对账

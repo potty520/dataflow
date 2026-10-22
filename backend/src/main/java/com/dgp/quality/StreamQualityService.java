@@ -3,6 +3,7 @@ package com.dgp.quality;
 import com.dgp.common.BizException;
 import com.dgp.common.Db;
 import com.dgp.common.ErrorCode;
+import com.dgp.common.JsonUtil;
 import com.dgp.common.M;
 import com.dgp.security.AuthContext;
 import org.slf4j.Logger;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -361,5 +363,100 @@ public class StreamQualityService {
 
     public LocalDate today() {
         return LocalDate.now();
+    }
+
+    // ---------------------------------------------------------------- 实时推送接入
+    /** 保存推送接入配置：fieldMapping 为 JSON（表字段 -> 报文键名），例如 {"device_id":"deviceId","metric_value":"value"}。 */
+    public Map<String, Object> savePushConfig(long sourceId, String fieldMapping, String status) {
+        if (db.one("SELECT id FROM qa_stream_source WHERE id=?", sourceId) == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "流源不存在");
+        }
+        if (fieldMapping == null || fieldMapping.isBlank()) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "字段映射不能为空");
+        }
+        if (!(JsonUtil.parse(fieldMapping) instanceof Map)) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "字段映射必须是 JSON 对象（表字段 -> 报文键名）");
+        }
+        db.update("DELETE FROM qa_stream_push WHERE source_id=?", sourceId);
+        db.insert("INSERT INTO qa_stream_push(source_id,field_mapping,status,push_count,create_time) VALUES(?,?,?,0,?)",
+                sourceId, fieldMapping, (status == null || status.isBlank()) ? "ENABLED" : status, LocalDateTime.now());
+        return M.of("sourceId", sourceId, "status", (status == null || status.isBlank()) ? "ENABLED" : status);
+    }
+
+    public Map<String, Object> pushConfig(long sourceId) {
+        return db.one("SELECT * FROM qa_stream_push WHERE source_id=?", sourceId);
+    }
+
+    /** 接收一条实时事件：按字段映射落库 → 逐规则判定 → 写结果/告警（事件级实时校验）。 */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> pushEvent(String sourceCode, Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "推送报文不能为空");
+        }
+        Map<String, Object> src = db.one("SELECT * FROM qa_stream_source WHERE code=?", sourceCode);
+        if (src == null) throw new BizException(ErrorCode.NOT_FOUND, "流源不存在：" + sourceCode);
+        long sourceId = Db.longVal(src.get("id"), 0L);
+        Map<String, Object> cfg = db.one("SELECT * FROM qa_stream_push WHERE source_id=? AND status='ENABLED'", sourceId);
+        if (cfg == null) throw new BizException(ErrorCode.PARAM_INVALID, "该流源未开启推送接入，请先配置字段映射");
+        Map<String, Object> mapping = (Map<String, Object>) JsonUtil.parse(String.valueOf(cfg.get("fieldMapping")));
+        if (mapping == null || mapping.isEmpty()) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "推送字段映射为空");
+        }
+        String table = Db.identifier(String.valueOf(src.get("tableName")));
+        String pkCol = Db.str(src.get("pkCol"));
+        if (pkCol == null || pkCol.isBlank()) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "推送接入要求流源配置主键字段（pk_col），用于事件级规则判定");
+        }
+        List<String> cols = new ArrayList<>();
+        List<Object> vals = new ArrayList<>();
+        for (Map.Entry<String, Object> e : mapping.entrySet()) {
+            cols.add(Db.identifier(e.getKey()));
+            vals.add(payload.get(String.valueOf(e.getValue())));
+        }
+        String insert = "INSERT INTO " + table + " (" + String.join(",", cols) + ") VALUES ("
+                + String.join(",", Collections.nCopies(cols.size(), "?")) + ")";
+        db.update(insert, vals.toArray());
+
+        Object pkVal = payload.get(String.valueOf(mapping.getOrDefault(pkCol, pkCol)));
+        if (pkVal == null) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "推送报文缺少主键字段：" + pkCol);
+        }
+        String eventTime = payload.get("eventTime") == null
+                ? TS.format(LocalDateTime.now()) : String.valueOf(payload.get("eventTime"));
+        List<Map<String, Object>> rules = db.list(
+                "SELECT * FROM qa_stream_rule WHERE source_id=? AND status='ENABLED'", sourceId);
+        List<Map<String, Object>> out = new ArrayList<>();
+        int failedRules = 0;
+        for (Map<String, Object> r : rules) {
+            long ruleId = Db.longVal(r.get("id"), 0L);
+            String expr = String.valueOf(r.get("expression"));
+            long failed;
+            try {
+                failed = db.count("SELECT COUNT(*) FROM " + table + " WHERE "
+                        + Db.identifier(pkCol) + "=? AND (" + expr + ")", pkVal);
+            } catch (Exception e) {
+                log.warn("推送事件规则 {} 判定失败: {}", r.get("code"), e.getMessage());
+                continue;
+            }
+            String status = failed > 0 ? "FAIL" : "PASS";
+            double passRate = failed > 0 ? 0 : 100;
+            db.insert("INSERT INTO qa_stream_result(source_id,rule_id,window_from,window_to,row_count,fail_count,"
+                            + "pass_rate,status,duration_ms,run_time) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    sourceId, ruleId, eventTime, eventTime, 1L, failed, BigDecimal.valueOf(passRate),
+                    status, 0L, LocalDateTime.now());
+            db.update("UPDATE qa_stream_rule SET last_pass_rate=?,last_fail_count=?,last_row_count=1,last_run_time=? WHERE id=?",
+                    BigDecimal.valueOf(passRate), failed, LocalDateTime.now(), ruleId);
+            if (failed > 0) {
+                failedRules++;
+                maybeAlert(src, r, eventTime, eventTime, passRate);
+            }
+            out.add(M.of("ruleId", ruleId, "ruleName", r.get("name"), "dimension", r.get("dimension"),
+                    "failed", failed > 0, "status", status));
+        }
+        db.update("UPDATE qa_stream_push SET push_count=push_count+1,last_push_time=? WHERE source_id=?",
+                LocalDateTime.now(), sourceId);
+        db.update("UPDATE qa_stream_source SET last_run_time=? WHERE id=?", LocalDateTime.now(), sourceId);
+        return M.of("sourceCode", sourceCode, "accepted", true, "eventTime", eventTime,
+                "ruleCount", out.size(), "failedRules", failedRules, "results", out);
     }
 }

@@ -73,6 +73,8 @@ def main():
     l = Lan()
 
     print("=== A. 初始化数据库 ===")
+    if os.environ.get("DGP_RESET_DB", "0") == "1":
+        l.script("db_reset", "mysql -e \"DROP DATABASE IF EXISTS {db}\"\necho dropped {db}\n".format(db=DB), show=True)
     load_sql = """CREATE DATABASE IF NOT EXISTS {db} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER IF NOT EXISTS '{u}'@'127.0.0.1' IDENTIFIED BY '{p}';
 ALTER USER '{u}'@'127.0.0.1' IDENTIFIED BY '{p}';

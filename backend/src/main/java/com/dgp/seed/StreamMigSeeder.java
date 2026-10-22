@@ -54,7 +54,28 @@ public class StreamMigSeeder {
                 "amount <= 0", 0.02, "MAJOR");
         rule(order, "SR-CUST-NULL", "订单缺少客户编号", "COMPLETENESS",
                 "customer_id IS NULL OR customer_id = ''", 0.01, "CRITICAL");
+        ensurePushConfig();
         log.info("已装载流式质检演示数据：2 个流源 / 5 条规则");
+    }
+
+    /** 推送接入演示配置：为设备流源指定主键并配置报文→表字段映射（幂等，已有库升级时也会补）。 */
+    private void ensurePushConfig() {
+        Object idObj = db.scalar("SELECT id FROM qa_stream_source WHERE code='SS-DEVICE-METRIC'");
+        if (idObj == null) return;
+        long sourceId = ((Number) idObj).longValue();
+        if (db.one("SELECT id FROM qa_stream_source WHERE id=? AND (pk_col IS NULL OR pk_col='')", sourceId) != null) {
+            db.update("UPDATE qa_stream_source SET pk_col='id' WHERE id=?", sourceId);
+        }
+        Object existing = db.scalar("SELECT field_mapping FROM qa_stream_push WHERE source_id=?", sourceId);
+        boolean needRepair = existing == null || !(com.dgp.common.JsonUtil.parse(String.valueOf(existing)) instanceof java.util.Map);
+        if (needRepair) {
+            db.update("DELETE FROM qa_stream_push WHERE source_id=?", sourceId);
+            String mapping = "{\"id\":\"id\",\"device_id\":\"deviceId\",\"device_name\":\"deviceName\","
+                    + "\"workshop\":\"workshop\",\"metric_name\":\"metricName\",\"metric_value\":\"value\","
+                    + "\"unit\":\"unit\",\"collect_time\":\"collectTime\"}";
+            db.insert("INSERT INTO qa_stream_push(source_id,field_mapping,status,push_count,create_time) "
+                    + "VALUES(?,?,'ENABLED',0,?)", sourceId, mapping, LocalDateTime.now());
+        }
     }
 
     private void rule(long sourceId, String code, String name, String dimension,

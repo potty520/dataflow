@@ -220,6 +220,30 @@ public class StreamQualityController {
         return Result.ok(M.of("deleted", true));
     }
 
+
+    // ------------------------------------------------------------ 实时推送接入
+    @GetMapping("/sources/{id}/push-config")
+    @RequirePerm("quality:stream:view")
+    public Result<Object> pushConfig(@PathVariable long id) {
+        return Result.ok(service.pushConfig(id));
+    }
+
+    @PutMapping("/sources/{id}/push-config")
+    @RequirePerm("quality:stream:edit")
+    public Result<Object> savePushConfig(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        // fieldMapping 允许传 JSON 对象或 JSON 字符串，统一规范化后落库
+        Object fm = b.get("fieldMapping");
+        String fieldMapping = fm instanceof String ? (String) fm : (fm == null ? null : com.dgp.common.JsonUtil.toJson(fm));
+        return Result.ok(service.savePushConfig(id, fieldMapping, Req.str(b.get("status"))));
+    }
+
+    /** 实时事件推送（Kafka/HTTP 生产者直接调用；按流源字段映射落库并逐规则判定）。 */
+    @PostMapping("/push/{code}")
+    @RequirePerm("quality:stream:exec")
+    public Result<Object> push(@PathVariable String code, @RequestBody Map<String, Object> payload) {
+        return Result.ok(service.pushEvent(code, payload));
+    }
+
     // ------------------------------------------------------------ 结果与告警
     @GetMapping("/results")
     @RequirePerm("quality:stream:view")
