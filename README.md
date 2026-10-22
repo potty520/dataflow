@@ -232,9 +232,10 @@ python deploy/publish_docs.py --dry-run    # 先看哪些文件有差异
 - 数据库变更未引入 Flyway，采用幂等 DDL + 启动种子（版本化迁移在 Roadmap 中）。
 - Roadmap：多租户行级隔离、Flyway 迁移、ES 检索、图库血缘、可观测性（Micrometer/Prometheus）、Docker Compose 一键起。
 
-## 需求文档
+## 目录中的需求文档
 
-系统的需求基线见 [软件需求规格说明书.md](软件需求规格说明书.md)（基于当前实际实现编写）。
+本仓库同时保留了项目立项时的原始需求材料（非代码）：
+`requirements_extracted.txt`、`需求说明书—大数据基座平台.md`。它们是需求基线参考，与当前实现的技术栈并不完全一致（当前实现见上文）。
 
 ## 安全与免责声明
 
