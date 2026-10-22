@@ -47,7 +47,7 @@ echo "  inserted=${INS:-NA} ms=$(( t1-t0 )) rows_per_sec=$(( ${INS:-0}*1000/(t1-
 [ -z "$INS" ] && echo "  resp: $R"
 
 say "2) 跨库迁移（远程读 → 本地写，$ROWS 行）"
-DS=$(api POST /api/v1/migration/datasources "{\"code\":\"BENCH-DS-$RUNID\",\"name\":\"基准远程\",\"dbType\":\"MYSQL\",\"host\":\"127.0.0.1\",\"port\":3306,\"dbName\":\"dgp\",\"username\":\"dgp\",\"password\":\"DgpLan2026Test\",\"proxyType\":\"DIRECT\"}" | jget "['data']['id']")
+DS=$(api POST /api/v1/migration/datasources "{\"code\":\"BENCH-DS-$RUNID\",\"name\":\"基准远程\",\"dbType\":\"MYSQL\",\"host\":\"127.0.0.1\",\"port\":3306,\"dbName\":\"dgp\",\"username\":\"dgp\",\"password\":\"'"$DS_DB_PASS"'\",\"proxyType\":\"DIRECT\"}" | jget "['data']['id']")
 P2=$(api POST /api/v1/migration/projects "{\"code\":\"BENCH-CROSS-$RUNID\",\"name\":\"基准-跨库\",\"sourceDsId\":$DS,\"targetDsId\":0,\"sourceTable\":\"zz_big\",\"targetTable\":\"zz_big_copy2\",\"mode\":\"FULL\"}" | jget "['data']['id']")
 api POST /api/v1/migration/projects/$P2/mappings "$MAP" >/dev/null
 sample_rss /tmp/rss_cross.txt & SPID=$!
