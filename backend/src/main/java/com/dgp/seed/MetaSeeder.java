@@ -245,7 +245,7 @@ public class MetaSeeder {
                 + "integration:job:run,integration:job:script,integration:sql:edit,integration:adhoc:query,integration:overview:view,"
                 + "integration:sandbox:view,workflow:definition:view,workflow:definition:trigger,workflow:instance:view,workflow:overview:view,"
                 + "quality:stream:view,quality:stream:create,quality:stream:edit,quality:stream:exec,"
-                + "migration:project:view,migration:project:create,migration:project:edit,migration:project:exec,migration:project:reconcile,"
+                + "migration:project:view,migration:project:create,migration:project:edit,migration:project:exec,migration:project:reconcile,migration:ds:view,migration:ds:edit,migration:ds:test,migration:file:view,migration:file:edit,migration:file:exec,"
                 + "asset:catalog:view,asset:map:view,asset:category:view,quality:rule:view,quality:check:view,quality:report:view,"
                 + "report:template:view";
         String quality = "metadata:overview:view,metadata:table:view,metadata:column:view,metadata:search,metadata:lineage:view,"
@@ -270,7 +270,7 @@ public class MetaSeeder {
                 + "industry:overview:view,standard:element:view,standard:element:create,standard:element:edit,standard:element:publish,"
                 + "standard:mapping:view,standard:compliance:view,model:model:view,quality:rule:view,quality:template:view,"
                 + "quality:check:view,quality:score:view,quality:overview:view,quality:issue:view,quality:report:view,quality:stream:view,"
-                + "migration:project:view,migration:project:create,migration:project:edit,migration:project:exec,migration:project:reconcile,"
+                + "migration:project:view,migration:project:create,migration:project:edit,migration:project:exec,migration:project:reconcile,migration:ds:view,migration:ds:edit,migration:ds:test,migration:file:view,migration:file:edit,migration:file:exec,"
                 + "asset:catalog:view,asset:category:view,report:template:view";
         return new Object[][]{
                 {"ROLE_GOV_ADMIN", "数据治理管理员", admin, "平台配置、权限管理、治理策略制定"},

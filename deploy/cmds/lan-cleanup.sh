@@ -37,3 +37,13 @@ mysql $DB -e "DELETE FROM mig_project WHERE code LIKE 'MIG-BATCH-%' OR code LIKE
 mysql $DB -e "DELETE FROM qa_stream_rule WHERE code LIKE 'SR-VERIFY-%'"
 mysql $DB -e "DELETE FROM qa_stream_push WHERE source_id NOT IN (SELECT id FROM qa_stream_source)"
 echo "=== v1.3 残留清理完成 ==="
+
+echo "=== 清理 v1.4 验收临时表（zz_*） ==="
+for t in $(mysql -N -e "SELECT table_name FROM information_schema.tables WHERE table_schema='$DB' AND table_name LIKE 'zz\_%'"); do
+  mysql -e "DROP TABLE IF EXISTS $DB.$t"
+  echo "  dropped $t"
+done
+mysql $DB -e "DELETE FROM mig_datasource WHERE code LIKE 'DS-%'"
+mysql $DB -e "DELETE FROM mig_file_task WHERE code LIKE 'FTP-%'"
+mysql $DB -e "DELETE FROM mig_project WHERE code LIKE 'MIG-CROSS%' OR code LIKE 'MIG-FTP%'"
+echo "=== v1.4 残留清理完成 ==="

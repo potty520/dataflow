@@ -1,6 +1,6 @@
 # DGP 接口清单（v1.1，实时导出自 Spring MVC 注册表）
 
-> 生成时间：2026-10-22 22:20:29 ｜ 接口总数：**304**
+> 生成时间：2026-10-22 22:48:13 ｜ 接口总数：**320**
 
 | 方法 | 路径 | 权限编码 | 实现 |
 |---|---|---|---|
@@ -18,8 +18,8 @@
 | GET | `/api/v1/admin/ping` | ç»å½æ | AdminController#ping |
 | GET | `/api/v1/admin/tasks/{taskId}` | ç»å½æ | AdminController#asyncTask |
 | POST | `/api/v1/asset/catalog` | asset:catalog:create | AssetController#create |
-| GET | `/api/v1/asset/catalog/{id}` | asset:catalog:view | AssetController#detail |
 | PUT | `/api/v1/asset/catalog/{id}` | asset:catalog:edit | AssetController#update |
+| GET | `/api/v1/asset/catalog/{id}` | asset:catalog:view | AssetController#detail |
 | POST | `/api/v1/asset/catalog/{id}/publish` | asset:catalog:publish | AssetController#publish |
 | GET | `/api/v1/asset/catalog/search` | asset:catalog:view | AssetController#search |
 | POST | `/api/v1/asset/categories` | asset:category:edit | AssetController#createCategory |
@@ -100,8 +100,8 @@
 | POST | `/api/v1/integration/sql/validate` | integration:sql:edit | IntegrationController#validate |
 | GET | `/api/v1/integration/stats/overview` | integration:overview:view | IntegrationController#stats |
 | GET | `/api/v1/metadata/collect/instances` | metadata:collect:view | MetadataController#collectInstances |
-| GET | `/api/v1/metadata/collect/tasks` | metadata:collect:view | MetadataController#collectTasks |
 | POST | `/api/v1/metadata/collect/tasks` | metadata:collect:create | MetadataController#createCollectTask |
+| GET | `/api/v1/metadata/collect/tasks` | metadata:collect:view | MetadataController#collectTasks |
 | PUT | `/api/v1/metadata/collect/tasks/{id}` | metadata:collect:edit | MetadataController#updateCollectTask |
 | POST | `/api/v1/metadata/collect/tasks/{id}/run` | metadata:collect:exec | MetadataController#runCollect |
 | PUT | `/api/v1/metadata/columns/{id}` | metadata:column:edit | MetadataController#updateColumn |
@@ -121,19 +121,35 @@
 | GET | `/api/v1/metadata/stats/overview` | metadata:overview:view | MetadataController#statsOverview |
 | POST | `/api/v1/metadata/tables` | metadata:table:create | MetadataController#createTable |
 | GET | `/api/v1/metadata/tables` | metadata:table:view | MetadataController#tables |
-| GET | `/api/v1/metadata/tables/{id}` | metadata:table:view | MetadataController#tableDetail |
-| DELETE | `/api/v1/metadata/tables/{id}` | metadata:table:delete | MetadataController#deleteTable |
 | PUT | `/api/v1/metadata/tables/{id}` | metadata:table:edit | MetadataController#updateTable |
+| DELETE | `/api/v1/metadata/tables/{id}` | metadata:table:delete | MetadataController#deleteTable |
+| GET | `/api/v1/metadata/tables/{id}` | metadata:table:view | MetadataController#tableDetail |
 | GET | `/api/v1/metadata/tables/{id}/columns` | metadata:column:view | MetadataController#columns |
-| POST | `/api/v1/metadata/terminology` | metadata:term:edit | MetadataController#saveTerm |
 | GET | `/api/v1/metadata/terminology` | metadata:term:view | MetadataController#terminology |
+| POST | `/api/v1/metadata/terminology` | metadata:term:edit | MetadataController#saveTerm |
 | GET | `/api/v1/metadata/versions` | metadata:version:view | MetadataController#versions |
 | GET | `/api/v1/metadata/versions/diff` | metadata:version:view | MetadataController#versionDiff |
+| POST | `/api/v1/migration/datasources` | migration:ds:edit | RemoteDsController#create |
+| GET | `/api/v1/migration/datasources` | migration:ds:view | RemoteDsController#list |
+| DELETE | `/api/v1/migration/datasources/{id}` | migration:ds:edit | RemoteDsController#delete |
+| PUT | `/api/v1/migration/datasources/{id}` | migration:ds:edit | RemoteDsController#update |
+| GET | `/api/v1/migration/datasources/{id}` | migration:ds:view | RemoteDsController#detail |
+| GET | `/api/v1/migration/datasources/{id}/columns` | migration:ds:view | RemoteDsController#columns |
+| POST | `/api/v1/migration/datasources/{id}/test` | migration:ds:test | RemoteDsController#test |
+| POST | `/api/v1/migration/datasources/test` | migration:ds:test | RemoteDsController#testAdhoc |
+| POST | `/api/v1/migration/files/tasks` | migration:file:edit | FileMigrationController#create |
+| GET | `/api/v1/migration/files/tasks` | migration:file:view | FileMigrationController#list |
+| GET | `/api/v1/migration/files/tasks/{id}` | migration:file:view | FileMigrationController#detail |
+| PUT | `/api/v1/migration/files/tasks/{id}` | migration:file:edit | FileMigrationController#update |
+| DELETE | `/api/v1/migration/files/tasks/{id}` | migration:file:edit | FileMigrationController#delete |
+| POST | `/api/v1/migration/files/tasks/{id}/run` | migration:file:exec | FileMigrationController#run |
+| GET | `/api/v1/migration/files/tasks/{id}/runs` | migration:file:view | FileMigrationController#runs |
+| POST | `/api/v1/migration/files/test` | migration:file:view | FileMigrationController#test |
 | GET | `/api/v1/migration/overview` | migration:project:view | MigrationController#overview |
 | POST | `/api/v1/migration/projects` | migration:project:create | MigrationController#createProject |
 | GET | `/api/v1/migration/projects` | migration:project:view | MigrationController#projects |
-| DELETE | `/api/v1/migration/projects/{id}` | migration:project:edit | MigrationController#deleteProject |
 | PUT | `/api/v1/migration/projects/{id}` | migration:project:edit | MigrationController#updateProject |
+| DELETE | `/api/v1/migration/projects/{id}` | migration:project:edit | MigrationController#deleteProject |
 | GET | `/api/v1/migration/projects/{id}` | migration:project:view | MigrationController#project |
 | POST | `/api/v1/migration/projects/{id}/checks` | migration:project:edit | MigrationController#saveChecks |
 | POST | `/api/v1/migration/projects/{id}/create-target` | migration:project:edit | MigrationController#createTarget |
@@ -151,8 +167,8 @@
 | GET | `/api/v1/migration/tables` | migration:project:view | MigrationController#tables |
 | GET | `/api/v1/migration/tables/{table}/columns` | migration:project:view | MigrationController#columns |
 | POST | `/api/v1/model/entities/{entityId}/ddl/execute` | model:ddl:execute | ModelController#executeDdl |
-| POST | `/api/v1/model/models` | model:model:create | ModelController#createModel |
 | GET | `/api/v1/model/models` | model:model:view | ModelController#models |
+| POST | `/api/v1/model/models` | model:model:create | ModelController#createModel |
 | PUT | `/api/v1/model/models/{id}` | model:model:edit | ModelController#updateModel |
 | DELETE | `/api/v1/model/models/{id}` | model:model:delete | ModelController#deleteModel |
 | GET | `/api/v1/model/models/{id}` | model:model:view | ModelController#model |
@@ -166,8 +182,8 @@
 | GET | `/api/v1/model/stats/overview` | model:overview:view | ModelController#stats |
 | GET | `/api/v1/model/templates` | model:template:view | ModelController#templates |
 | GET | `/api/v1/overview/dashboard` | metadata:overview:view | OverviewController#dashboard |
-| POST | `/api/v1/quality/checks` | quality:check:create | QualityController#createCheck |
 | GET | `/api/v1/quality/checks` | quality:check:view | QualityController#checks |
+| POST | `/api/v1/quality/checks` | quality:check:create | QualityController#createCheck |
 | PUT | `/api/v1/quality/checks/{id}` | quality:check:edit | QualityController#updateCheck |
 | GET | `/api/v1/quality/checks/{id}/instances` | quality:check:view | QualityController#checkInstances |
 | POST | `/api/v1/quality/checks/{id}/run` | quality:check:exec | QualityController#runCheck |
@@ -186,8 +202,8 @@
 | POST | `/api/v1/quality/reports/{id}/export` | quality:report:export | QualityController#exportReport |
 | POST | `/api/v1/quality/rules` | quality:rule:create | QualityController#createRule |
 | GET | `/api/v1/quality/rules` | quality:rule:view | QualityController#rules |
-| PUT | `/api/v1/quality/rules/{id}` | quality:rule:edit | QualityController#updateRule |
 | DELETE | `/api/v1/quality/rules/{id}` | quality:rule:delete | QualityController#deleteRule |
+| PUT | `/api/v1/quality/rules/{id}` | quality:rule:edit | QualityController#updateRule |
 | POST | `/api/v1/quality/rules/{id}/audit` | quality:rule:audit | QualityController#auditRule |
 | POST | `/api/v1/quality/rules/{id}/try-run` | quality:rule:exec | QualityController#tryRun |
 | POST | `/api/v1/quality/rules/batch-apply` | quality:rule:batch | QualityController#batchApply |
@@ -206,10 +222,10 @@
 | GET | `/api/v1/quality/stream/rules` | quality:stream:view | StreamQualityController#rules |
 | PUT | `/api/v1/quality/stream/rules/{id}` | quality:stream:edit | StreamQualityController#updateRule |
 | DELETE | `/api/v1/quality/stream/rules/{id}` | quality:stream:edit | StreamQualityController#deleteRule |
-| POST | `/api/v1/quality/stream/sources` | quality:stream:create | StreamQualityController#createSource |
 | GET | `/api/v1/quality/stream/sources` | quality:stream:view | StreamQualityController#sources |
-| DELETE | `/api/v1/quality/stream/sources/{id}` | quality:stream:edit | StreamQualityController#deleteSource |
+| POST | `/api/v1/quality/stream/sources` | quality:stream:create | StreamQualityController#createSource |
 | PUT | `/api/v1/quality/stream/sources/{id}` | quality:stream:edit | StreamQualityController#updateSource |
+| DELETE | `/api/v1/quality/stream/sources/{id}` | quality:stream:edit | StreamQualityController#deleteSource |
 | GET | `/api/v1/quality/stream/sources/{id}/push-config` | quality:stream:view | StreamQualityController#pushConfig |
 | PUT | `/api/v1/quality/stream/sources/{id}/push-config` | quality:stream:edit | StreamQualityController#savePushConfig |
 | POST | `/api/v1/quality/stream/sources/{id}/reset-watermark` | quality:stream:exec | StreamQualityController#resetWatermark |
@@ -236,8 +252,8 @@
 | GET | `/api/v1/security/audit/logs` | security:audit:view | SecurityController#auditLogs |
 | GET | `/api/v1/security/audit/logs/export` | security:audit:export | SecurityController#exportAudit |
 | POST | `/api/v1/security/audit/verify-chain` | security:audit:view | SecurityController#verifyChain |
-| POST | `/api/v1/security/mask/policies` | security:mask:create | SecurityController#createPolicy |
 | GET | `/api/v1/security/mask/policies` | security:mask:view | SecurityController#policies |
+| POST | `/api/v1/security/mask/policies` | security:mask:create | SecurityController#createPolicy |
 | PUT | `/api/v1/security/mask/policies/{id}` | security:mask:edit | SecurityController#updatePolicy |
 | POST | `/api/v1/security/mask/policies/{id}/approve` | security:mask:approve | SecurityController#approve |
 | POST | `/api/v1/security/mask/policies/{id}/enable` | security:mask:approve | SecurityController#enable |
@@ -269,15 +285,15 @@
 | POST | `/api/v1/service/orchestrations` | service:orchestration:edit | ServiceController#createOrchestration |
 | GET | `/api/v1/service/orchestrations` | service:orchestration:view | ServiceController#orchestrations |
 | POST | `/api/v1/service/orchestrations/{id}/run` | service:orchestration:exec | ServiceController#runOrchestration |
-| GET | `/api/v1/service/quota` | service:quota:view | ServiceController#quota |
 | PUT | `/api/v1/service/quota` | service:quota:edit | ServiceController#updateQuota |
+| GET | `/api/v1/service/quota` | service:quota:view | ServiceController#quota |
 | GET | `/api/v1/service/stats/overview` | service:overview:view | ServiceController#stats |
 | POST | `/api/v1/standard/categories` | standard:category:edit | StandardController#createCategory |
 | GET | `/api/v1/standard/categories/tree` | standard:category:view | StandardController#categories |
 | POST | `/api/v1/standard/compliance/check` | standard:compliance:check | StandardController#complianceCheck |
 | GET | `/api/v1/standard/compliance/summary` | standard:compliance:view | StandardController#complianceSummary |
-| GET | `/api/v1/standard/elements` | standard:element:view | StandardController#elements |
 | POST | `/api/v1/standard/elements` | standard:element:create | StandardController#createElement |
+| GET | `/api/v1/standard/elements` | standard:element:view | StandardController#elements |
 | PUT | `/api/v1/standard/elements/{id}` | standard:element:edit | StandardController#updateElement |
 | POST | `/api/v1/standard/elements/{id}/deprecate` | standard:element:publish | StandardController#deprecateElement |
 | POST | `/api/v1/standard/elements/{id}/publish` | standard:element:publish | StandardController#publishElement |
@@ -285,8 +301,8 @@
 | GET | `/api/v1/standard/mappings` | standard:mapping:view | StandardController#mappings |
 | POST | `/api/v1/standard/mappings/batch` | standard:mapping:batch | StandardController#batchMapping |
 | GET | `/api/v1/standard/mappings/recommend` | standard:mapping:recommend | StandardController#recommend |
-| POST | `/api/v1/standard/standards` | standard:standard:create | StandardController#createStandard |
 | GET | `/api/v1/standard/standards` | standard:standard:view | StandardController#standards |
+| POST | `/api/v1/standard/standards` | standard:standard:create | StandardController#createStandard |
 | GET | `/api/v1/standard/stats/overview` | standard:overview:view | StandardController#stats |
 | POST | `/api/v1/workflow/definitions` | workflow:definition:create | WorkflowController#create |
 | GET | `/api/v1/workflow/definitions` | workflow:definition:view | WorkflowController#definitions |

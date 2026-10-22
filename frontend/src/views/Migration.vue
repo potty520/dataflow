@@ -216,6 +216,7 @@ import { migrationApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 
 const store = useAuthStore()
+const remoteDsList = ref([])
 const can = (p) => store.has(p)
 
 const overview = ref({})
@@ -231,7 +232,7 @@ const replaceTarget = ref(true)
 const query = reactive({ keyword: '', status: '' })
 const dialog = ref(false)
 const tableOptions = ref([])
-const form = reactive({ code: '', name: '', sourceTable: '', targetTable: '', mode: 'FULL', watermarkCol: '', replaceTargetBool: true, batchSize: 5000, rollbackOnFailBool: false, description: '' })
+const form = reactive({ code: '', name: '', sourceDsId: null, targetDsId: null, sourceTable: '', targetTable: '', mode: 'FULL', watermarkCol: '', replaceTargetBool: true, batchSize: 5000, rollbackOnFailBool: false, description: '' })
 
 const fmt = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const sampleColumns = computed(() => (pre.value.sample && pre.value.sample.length ? Object.keys(pre.value.sample[0]) : []))
@@ -322,7 +323,7 @@ async function delProject(row) {
 }
 async function openProject() {
   if (!tableOptions.value.length) tableOptions.value = ((await migrationApi.tables()) || {}).records || []
-  Object.assign(form, { code: '', name: '', sourceTable: '', targetTable: '', mode: 'FULL', watermarkCol: '', replaceTargetBool: true, batchSize: 5000, rollbackOnFailBool: false, description: '' })
+  Object.assign(form, { code: '', name: '', sourceDsId: null, targetDsId: null, sourceTable: '', targetTable: '', mode: 'FULL', watermarkCol: '', replaceTargetBool: true, batchSize: 5000, rollbackOnFailBool: false, description: '' })
   dialog.value = true
 }
 async function createProject() {

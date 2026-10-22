@@ -1172,6 +1172,8 @@ CREATE TABLE IF NOT EXISTS mig_project (
     tenant_id BIGINT DEFAULT 1,
     code VARCHAR(64) NOT NULL UNIQUE,
     name VARCHAR(128) NOT NULL,
+    source_ds_id BIGINT DEFAULT 0,
+    target_ds_id BIGINT DEFAULT 0,
     source_table VARCHAR(128) NOT NULL,
     target_table VARCHAR(128) NOT NULL,
     mode VARCHAR(16) DEFAULT 'FULL',
@@ -1244,3 +1246,74 @@ CREATE TABLE IF NOT EXISTS mig_diff (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- 热查询索引
+
+-- ============================================================
+-- v1.4：远程（跨网络）数据源 + FTP 文件迁移
+-- ============================================================
+CREATE TABLE IF NOT EXISTS mig_datasource (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT DEFAULT 1,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(128) NOT NULL,
+    db_type VARCHAR(16) DEFAULT 'MYSQL',
+    host VARCHAR(128) NOT NULL,
+    port INT DEFAULT 3306,
+    db_name VARCHAR(128) NOT NULL,
+    username VARCHAR(64),
+    password_enc VARCHAR(512),
+    proxy_type VARCHAR(16) DEFAULT 'DIRECT',
+    proxy_host VARCHAR(128),
+    proxy_port INT,
+    proxy_user VARCHAR(64),
+    proxy_password_enc VARCHAR(512),
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    last_test_ok INT,
+    last_test_time DATETIME,
+    last_test_msg VARCHAR(500),
+    create_time DATETIME,
+    update_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS mig_file_task (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT DEFAULT 1,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(128) NOT NULL,
+    direction VARCHAR(16) NOT NULL,
+    project_id BIGINT,
+    source_table VARCHAR(128),
+    target_table VARCHAR(128),
+    file_format VARCHAR(16) DEFAULT 'CSV',
+    remote_type VARCHAR(16) DEFAULT 'FTP',
+    remote_host VARCHAR(128),
+    remote_port INT DEFAULT 21,
+    remote_user VARCHAR(64),
+    remote_password_enc VARCHAR(512),
+    remote_dir VARCHAR(255) DEFAULT '/',
+    remote_file VARCHAR(255),
+    proxy_type VARCHAR(16) DEFAULT 'DIRECT',
+    proxy_host VARCHAR(128),
+    proxy_port INT,
+    proxy_user VARCHAR(64),
+    proxy_password_enc VARCHAR(512),
+    compress INT DEFAULT 0,
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    create_time DATETIME,
+    update_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS mig_file_run (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    task_id BIGINT NOT NULL,
+    direction VARCHAR(16),
+    status VARCHAR(16) DEFAULT 'RUNNING',
+    start_time DATETIME,
+    end_time DATETIME,
+    rows_count BIGINT DEFAULT 0,
+    bytes_count BIGINT DEFAULT 0,
+    checksum VARCHAR(128),
+    message VARCHAR(500),
+    operator VARCHAR(64),
+    KEY idx_mig_file_run_task (task_id, start_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+

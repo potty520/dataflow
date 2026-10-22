@@ -104,10 +104,11 @@ public class MigrationController {
         String mode = "INCREMENTAL".equalsIgnoreCase(Req.str(b.get("mode"))) ? "INCREMENTAL" : "FULL";
         String wm = Req.str(b.get("watermarkCol"));
         if (wm != null && !wm.isBlank()) Db.identifier(wm);
-        long id = db.insert("INSERT INTO mig_project(tenant_id,code,name,source_table,target_table,mode,watermark_col,"
-                        + "replace_target,batch_size,rollback_on_fail,status,description,owner,create_time,update_time) "
-                        + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                1L, code, Req.str(b.getOrDefault("name", code)), source, target, mode,
+        long id = db.insert("INSERT INTO mig_project(tenant_id,code,name,source_ds_id,target_ds_id,source_table,target_table,"
+                        + "mode,watermark_col,replace_target,batch_size,rollback_on_fail,status,description,owner,create_time,update_time) "
+                        + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                1L, code, Req.str(b.getOrDefault("name", code)),
+                Req.toInt(b.get("sourceDsId"), 0), Req.toInt(b.get("targetDsId"), 0), source, target, mode,
                 (wm == null || wm.isBlank()) ? null : wm, Req.toInt(b.get("replaceTarget"), 1),
                 Req.toInt(b.get("batchSize"), 5000), Req.toInt(b.get("rollbackOnFail"), 0),
                 Req.str(b.getOrDefault("status", "DRAFT")), Req.str(b.get("description")),
@@ -124,9 +125,11 @@ public class MigrationController {
         String target = Db.identifier(String.valueOf(pick(b, before, "targetTable")));
         String mode = "INCREMENTAL".equalsIgnoreCase(String.valueOf(pick(b, before, "mode"))) ? "INCREMENTAL" : "FULL";
         String wm = Req.str(pick(b, before, "watermarkCol"));
-        db.update("UPDATE mig_project SET name=?,source_table=?,target_table=?,mode=?,watermark_col=?,"
+        db.update("UPDATE mig_project SET name=?,source_ds_id=?,target_ds_id=?,source_table=?,target_table=?,mode=?,watermark_col=?,"
                         + "replace_target=?,batch_size=?,rollback_on_fail=?,status=?,description=?,update_time=? WHERE id=?",
-                pick(b, before, "name"), source, target, mode,
+                pick(b, before, "name"),
+                Req.toInt(pick(b, before, "sourceDsId"), 0), Req.toInt(pick(b, before, "targetDsId"), 0),
+                source, target, mode,
                 (wm == null || wm.isBlank()) ? null : Db.identifier(wm),
                 Req.toInt(pick(b, before, "replaceTarget"), 1),
                 Req.toInt(pick(b, before, "batchSize"), 5000),

@@ -179,7 +179,22 @@ export const migrationApi = {
   runDetail: (runId) => http.get(`/api/v1/migration/runs/${runId}`),
   reconcile: (runId) => http.post(`/api/v1/migration/runs/${runId}/reconcile`),
   diffs: (runId) => http.get(`/api/v1/migration/runs/${runId}/diffs`),
-  rollbackRun: (runId) => http.post(`/api/v1/migration/runs/${runId}/rollback`)
+  rollbackRun: (runId) => http.post(`/api/v1/migration/runs/${runId}/rollback`),
+  // ---- 远程数据源（跨网络）+ FTP 文件迁移（v1.4）----
+  remoteDsList: (params) => http.get('/api/v1/migration/datasources', { params }),
+  createRemoteDs: (data) => http.post('/api/v1/migration/datasources', data),
+  updateRemoteDs: (id, data) => http.put(`/api/v1/migration/datasources/${id}`, data),
+  deleteRemoteDs: (id) => http.delete(`/api/v1/migration/datasources/${id}`),
+  testRemoteDs: (id) => http.post(`/api/v1/migration/datasources/${id}/test`),
+  testRemoteDsAdhoc: (data) => http.post('/api/v1/migration/datasources/test', data),
+  remoteDsColumns: (id, table) => http.get(`/api/v1/migration/datasources/${id}/columns`, { params: { table } }),
+  fileTasks: (params) => http.get('/api/v1/migration/files/tasks', { params }),
+  createFileTask: (data) => http.post('/api/v1/migration/files/tasks', data),
+  updateFileTask: (id, data) => http.put(`/api/v1/migration/files/tasks/${id}`, data),
+  deleteFileTask: (id) => http.delete(`/api/v1/migration/files/tasks/${id}`),
+  runFileTask: (id) => http.post(`/api/v1/migration/files/tasks/${id}/run`),
+  fileTaskRuns: (id) => http.get(`/api/v1/migration/files/tasks/${id}/runs`),
+  testFtp: (data) => http.post('/api/v1/migration/files/test', data),
 }
 export const securityApi = {
   sensitiveRules: () => http.get('/api/v1/security/sensitive/rules'),

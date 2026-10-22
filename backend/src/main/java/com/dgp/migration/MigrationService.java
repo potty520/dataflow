@@ -33,9 +33,11 @@ public class MigrationService {
             "csvread|read_csv|link_schema|file_read|load_file|xp_cmdshell|into\\s+outfile|into\\s+dumpfile");
 
     private final Db db;
+    private final CrossMigrationService cross;
 
-    public MigrationService(Db db) {
+    public MigrationService(Db db, CrossMigrationService cross) {
         this.db = db;
+        this.cross = cross;
     }
 
     // ------------------------------------------------------------ 基础校验
@@ -97,8 +99,8 @@ public class MigrationService {
         Map<String, Object> p = requireProject(projectId);
         String source = String.valueOf(p.get("sourceTable"));
         String target = String.valueOf(p.get("targetTable"));
-        List<Map<String, Object>> srcCols = columnsOf(source);
-        List<Map<String, Object>> tgtCols = columnsOf(target);
+        List<Map<String, Object>> srcCols = srcColumns(p, source);
+        List<Map<String, Object>> tgtCols = tgtColumns(p, target);
         // 推荐是"重新生成一套映射"，因此不按已保存映射排除目标字段（否则二次推荐会全部为空）
         Set<String> used = new LinkedHashSet<>();
         long existing = db.count("SELECT COUNT(*) FROM mig_mapping WHERE project_id=?", projectId);
@@ -256,8 +258,8 @@ public class MigrationService {
         String target = String.valueOf(p.get("targetTable"));
         List<Map<String, Object>> mappings = db.list(
                 "SELECT * FROM mig_mapping WHERE project_id=? ORDER BY sort_no,id", projectId);
-        List<String> srcCols = columnNames(source);
-        List<String> tgtCols = columnNames(target);
+        List<String> srcCols = names(srcColumns(p, source));
+        List<String> tgtCols = names(tgtColumns(p, target));
         boolean targetExists = !tgtCols.isEmpty();
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
@@ -275,7 +277,11 @@ public class MigrationService {
         List<Map<String, Object>> sample = new ArrayList<>();
         String ddl = targetExists ? "" : suggestDdl(target, mappings);
         try {
-            sample = db.list("SELECT " + selectList(mappings) + " FROM " + Db.identifier(source) + " LIMIT 3");
+            if (CrossMigrationService.needsCross(p)) {
+                sample = cross.sample(p, mappings, 3);
+            } else {
+                sample = db.list("SELECT " + selectList(mappings) + " FROM " + Db.identifier(source) + " LIMIT 3");
+            }
         } catch (Exception e) {
             errors.add("样例取数失败：" + e.getMessage());
         }
@@ -285,6 +291,24 @@ public class MigrationService {
                 "suggestDdl", ddl, "sample", sample,
                 "srcColumns", srcCols, "tgtColumns", tgtCols,
                 "ready", errors.isEmpty());
+    }
+
+
+    /** 源端字段：远程数据源走远程连接，否则本库 information_schema。 */
+    private List<Map<String, Object>> srcColumns(Map<String, Object> p, String table) {
+        if (CrossMigrationService.needsCross(p)) return cross.columnsOf(p, table, true);
+        return columnsOf(table);
+    }
+
+    private List<Map<String, Object>> tgtColumns(Map<String, Object> p, String table) {
+        if (CrossMigrationService.needsCross(p)) return cross.columnsOf(p, table, false);
+        return columnsOf(table);
+    }
+
+    private static List<String> names(List<Map<String, Object>> cols) {
+        List<String> out = new ArrayList<>();
+        for (Map<String, Object> c : cols) out.add(String.valueOf(c.get("name")));
+        return out;
     }
 
     /** 生成 SELECT 表达式列表（映射 → SQL）。 */
@@ -332,6 +356,9 @@ public class MigrationService {
     // ------------------------------------------------------------ 执行（分批 / 断点续传 / 失败回滚）
     public Map<String, Object> run(long projectId, boolean replace, int batchSize, String operator) {
         Map<String, Object> p = requireProject(projectId);
+        if (CrossMigrationService.needsCross(p)) {
+            return cross.run(p, replace, batchSize, operator);
+        }
         String source = Db.identifier(String.valueOf(p.get("sourceTable")));
         String target = Db.identifier(String.valueOf(p.get("targetTable")));
         List<Map<String, Object>> mappings = db.list(
@@ -448,6 +475,9 @@ public class MigrationService {
         if (run == null) throw new BizException(ErrorCode.NOT_FOUND, "迁移批次不存在");
         long projectId = Db.longVal(run.get("projectId"), 0L);
         Map<String, Object> p = requireProject(projectId);
+        if (CrossMigrationService.needsCross(p)) {
+            return cross.rollback(run);
+        }
         String wm = Db.str(p.get("watermarkCol"));
         if (wm == null || wm.isBlank()) {
             throw new BizException(ErrorCode.PARAM_INVALID, "仅增量模式支持回滚");
@@ -525,6 +555,9 @@ public class MigrationService {
         if (run == null) throw new BizException(ErrorCode.NOT_FOUND, "迁移批次不存在");
         long projectId = Db.longVal(run.get("projectId"), 0L);
         Map<String, Object> p = requireProject(projectId);
+        if (CrossMigrationService.needsCross(p)) {
+            return cross.rollback(run);
+        }
         String source = Db.identifier(String.valueOf(p.get("sourceTable")));
         String target = Db.identifier(String.valueOf(p.get("targetTable")));
 

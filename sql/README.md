@@ -52,3 +52,11 @@ mysql -u root -p dgp < sql/upgrade-v1.2-to-v1.3.sql
 ```
 
 新建库直接使用上面的 `schema-mysql.sql`（已包含全部 87 张表）。
+
+## 已有数据库升级（v1.3 → v1.4）
+
+v1.4 新增远程数据源、FTP 文件任务与批次表，并为迁移项目增加源/目标数据源字段：
+
+```bash
+mysql -u root -p dgp < sql/upgrade-v1.3-to-v1.4.sql
+```
