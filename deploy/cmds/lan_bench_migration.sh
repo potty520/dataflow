@@ -5,6 +5,11 @@ BASE=http://127.0.0.1:8092
 ROWS=${ROWS:-1000000}
 DB=dgp
 RUNID=$$
+# 凭据从环境变量读取（脚本本身不保存任何口令）
+DS_DB_PASS=${DGP_DB_PASSWORD:?请设置 DGP_DB_PASSWORD}
+FTP_PASS=${DGP_FTP_PASS:?请设置 DGP_FTP_PASS}
+FTP_HOST=${DGP_FTP_HOST:-127.0.0.1}
+FTP_USER=${DGP_FTP_USER:-dgpftp}
 say() { echo; echo "########## $* ##########"; }
 ms() { date +%s%3N; }
 
@@ -55,12 +60,12 @@ echo "  inserted=${INS:-NA} ms=$(( t1-t0 )) rows_per_sec=$(( ${INS:-0}*1000/(t1-
 say "3) FTP 导出/导入（$ROWS 行 CSV）"
 P3=$(api POST /api/v1/migration/projects "{\"code\":\"BENCH-FTP-$RUNID\",\"name\":\"基准-FTP\",\"sourceTable\":\"zz_big\",\"targetTable\":\"zz_big_copy3\",\"mode\":\"FULL\"}" | jget "['data']['id']")
 api POST /api/v1/migration/projects/$P3/mappings "$MAP" >/dev/null
-T1=$(api POST /api/v1/migration/files/tasks "{\"code\":\"BENCH-EXP-$RUNID\",\"name\":\"基准导出\",\"direction\":\"EXPORT\",\"projectId\":$P3,\"remoteHost\":\"127.0.0.1\",\"remotePort\":21,\"remoteUser\":\"dgpftp\",\"remotePassword\":\"DgpFtp2026!\",\"remoteDir\":\"/upload\",\"remoteFile\":\"bench_$RUNID.csv\",\"proxyType\":\"DIRECT\"}" | jget "['data']['id']")
+T1=$(api POST /api/v1/migration/files/tasks "{\"code\":\"BENCH-EXP-$RUNID\",\"name\":\"基准导出\",\"direction\":\"EXPORT\",\"projectId\":$P3,\"remoteHost\":\"$FTP_HOST\",\"remotePort\":21,\"remoteUser\":\"$FTP_USER\",\"remotePassword\":\"$FTP_PASS\",\"remoteDir\":\"/upload\",\"remoteFile\":\"bench_$RUNID.csv\",\"proxyType\":\"DIRECT\"}" | jget "['data']['id']")
 sample_rss /tmp/rss_ftp.txt & SPID=$!
 t0=$(ms); R=$(api POST /api/v1/migration/files/tasks/$T1/run); t1=$(ms)
 kill $SPID 2>/dev/null
 echo "  export rows=$(echo "$R"|jget "['data']['rows']") bytes=$(echo "$R"|jget "['data']['bytes']") ms=$(( t1-t0 )) peakRSS_KB=$(peak /tmp/rss_ftp.txt)"
-T2=$(api POST /api/v1/migration/files/tasks "{\"code\":\"BENCH-IMP-$RUNID\",\"name\":\"基准导入\",\"direction\":\"IMPORT\",\"projectId\":$P3,\"remoteHost\":\"127.0.0.1\",\"remotePort\":21,\"remoteUser\":\"dgpftp\",\"remotePassword\":\"DgpFtp2026!\",\"remoteDir\":\"/upload\",\"remoteFile\":\"bench_$RUNID.csv\",\"proxyType\":\"DIRECT\"}" | jget "['data']['id']")
+T2=$(api POST /api/v1/migration/files/tasks "{\"code\":\"BENCH-IMP-$RUNID\",\"name\":\"基准导入\",\"direction\":\"IMPORT\",\"projectId\":$P3,\"remoteHost\":\"$FTP_HOST\",\"remotePort\":21,\"remoteUser\":\"$FTP_USER\",\"remotePassword\":\"$FTP_PASS\",\"remoteDir\":\"/upload\",\"remoteFile\":\"bench_$RUNID.csv\",\"proxyType\":\"DIRECT\"}" | jget "['data']['id']")
 sample_rss /tmp/rss_ftpi.txt & SPID=$!
 t0=$(ms); R=$(api POST /api/v1/migration/files/tasks/$T2/run); t1=$(ms)
 kill $SPID 2>/dev/null
