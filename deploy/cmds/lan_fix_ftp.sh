@@ -15,12 +15,12 @@ echo "=== 重启并自检 ==="
 systemctl restart vsftpd
 sleep 1
 python3 - <<'PY'
-import ftplib, io
+import os, ftplib, io
 try:
     f = ftplib.FTP()
     f.connect("127.0.0.1", 21, timeout=10)
     print("welcome:", f.getwelcome())
-    print("login:", f.login("dgpftp", "DgpFtp2026!"))
+    print("login:", f.login(os.environ.get("DGP_FTP_USER", "dgpftp"), os.environ["DGP_FTP_PASS"]))
     print("pwd:", f.pwd())
     f.storbinary("STOR /upload/probe.txt", io.BytesIO(b"dgp-ftp-probe-2"))
     print("upload OK; size:", f.size("/upload/probe.txt"))

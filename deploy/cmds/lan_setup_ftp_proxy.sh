@@ -2,6 +2,10 @@
 # 在局域网 4C8G 机器上准备 v1.4 验证环境：明文 FTP(vsftpd) + SOCKS5 代理（用于“不同网络”场景模拟）
 set -e
 
+# FTP 测试账号口令由环境变量提供（脚本不保存口令）
+FTP_USER=${DGP_FTP_USER:-dgpftp}
+FTP_PASS=${DGP_FTP_PASS:?请先设置 DGP_FTP_PASS}
+
 echo "=== 1. 安装 vsftpd ==="
 if ! command -v vsftpd >/dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
@@ -36,7 +40,7 @@ EOF
 
 echo "=== 3. 创建 FTP 用户与目录 ==="
 id dgpftp >/dev/null 2>&1 || useradd -m -d /srv/dgpftp -s /usr/sbin/nologin dgpftp
-echo 'dgpftp:DgpFtp2026!' | chpasswd
+echo "$FTP_USER:$FTP_PASS" | chpasswd
 mkdir -p /srv/dgpftp/upload
 chown -R dgpftp:dgpftp /srv/dgpftp
 chmod 755 /srv/dgpftp /srv/dgpftp/upload
@@ -118,11 +122,11 @@ ss -lntp | grep ':1080 ' || echo "SOCKS5 未监听"
 
 echo "=== 5. 连通性自检（FTP + SOCKS5） ==="
 python3 - <<'PY'
-import ftplib
+import os, ftplib
 try:
     f = ftplib.FTP()
     f.connect("127.0.0.1", 21, timeout=10)
-    f.login("dgpftp", "DgpFtp2026!")
+    f.login(os.environ.get("DGP_FTP_USER", "dgpftp"), os.environ["DGP_FTP_PASS"])
     print("FTP login OK, dir:", f.pwd())
     import io
     f.storbinary("STOR /upload/probe.txt", io.BytesIO(b"dgp-ftp-probe"))
