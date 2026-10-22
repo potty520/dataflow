@@ -20,6 +20,7 @@ const routes = [
       { path: 'integration', component: () => import('@/views/Integration.vue'), meta: { title: '数据集成', perm: 'integration:job:view' } },
       { path: 'workflow', component: () => import('@/views/Workflow.vue'), meta: { title: '调度与工作流', perm: 'workflow:definition:view' } },
       { path: 'quality', component: () => import('@/views/Quality.vue'), meta: { title: '数据质量', perm: 'quality:rule:view' } },
+      { path: 'quality/stream', component: () => import('@/views/StreamQuality.vue'), meta: { title: '流式质检', perm: 'quality:stream:view' } },
       { path: 'quality/issues', component: () => import('@/views/Issues.vue'), meta: { title: '问题闭环', perm: 'quality:issue:view' } },
       { path: 'quality/reports', component: () => import('@/views/Reports.vue'), meta: { title: '质量报告', perm: 'quality:report:view' } },
       { path: 'security', component: () => import('@/views/Security.vue'), meta: { title: '数据安全', perm: 'security:mask:view' } },
@@ -27,6 +28,7 @@ const routes = [
       { path: 'asset', component: () => import('@/views/Asset.vue'), meta: { title: '数据资产', perm: 'asset:catalog:view' } },
       { path: 'asset/map', component: () => import('@/views/AssetMap.vue'), meta: { title: '资产地图', perm: 'asset:map:view' } },
       { path: 'service', component: () => import('@/views/Service.vue'), meta: { title: '数据服务', perm: 'service:api:view' } },
+      { path: 'migration', component: () => import('@/views/Migration.vue'), meta: { title: '数据迁移', perm: 'migration:project:view' } },
       { path: 'industry', component: () => import('@/views/Industry.vue'), meta: { title: '行业适配', perm: 'industry:package:view' } },
       { path: 'admin', component: () => import('@/views/Admin.vue'), meta: { title: '系统管理', perm: 'sys:config:view' } }
     ]

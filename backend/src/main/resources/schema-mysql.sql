@@ -1080,3 +1080,148 @@ CREATE TABLE IF NOT EXISTS sys_dict (
 
 -- 业务唯一性：元数据表名/列名为血缘、规则、脱敏策略的 join key，必须唯一
 -- 热查询索引
+
+-- ============================================================
+-- v1.2 新增：流式（微批）数据质检 + 数据迁移映射
+-- 语法保持 H2(PostgreSQL 模式) / PostgreSQL / MySQL 三向兼容
+-- ============================================================
+
+-- ---------------------------- 流式质检（微批窗口） dgp-quality ----------------------------
+CREATE TABLE IF NOT EXISTS qa_stream_source (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT DEFAULT 1,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(128) NOT NULL,
+    table_name VARCHAR(128) NOT NULL,
+    watermark_col VARCHAR(64) NOT NULL,
+    watermark_type VARCHAR(16) DEFAULT 'DATETIME',
+    window_seconds INT DEFAULT 60,
+    batch_limit INT DEFAULT 5000,
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    last_watermark VARCHAR(64),
+    last_run_time DATETIME,
+    owner VARCHAR(64),
+    create_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS qa_stream_rule (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_id BIGINT NOT NULL,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(128) NOT NULL,
+    dimension VARCHAR(32) DEFAULT 'VALIDITY',
+    expression VARCHAR(1000) NOT NULL,
+    tolerance DECIMAL(6,4) DEFAULT 0.01,
+    severity VARCHAR(16) DEFAULT 'MAJOR',
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    last_pass_rate DECIMAL(6,2),
+    last_fail_count BIGINT,
+    last_row_count BIGINT,
+    last_run_time DATETIME,
+    create_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS qa_stream_result (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_id BIGINT NOT NULL,
+    rule_id BIGINT NOT NULL,
+    window_from VARCHAR(64),
+    window_to VARCHAR(64),
+    row_count BIGINT DEFAULT 0,
+    fail_count BIGINT DEFAULT 0,
+    pass_rate DECIMAL(6,2),
+    status VARCHAR(16) DEFAULT 'PASS',
+    duration_ms BIGINT DEFAULT 0,
+    run_time DATETIME,
+    KEY idx_qa_stream_result_rule (rule_id, run_time),
+    KEY idx_qa_stream_result_src (source_id, run_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS qa_stream_alert (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_id BIGINT NOT NULL,
+    rule_id BIGINT NOT NULL,
+    title VARCHAR(255),
+    severity VARCHAR(16) DEFAULT 'MAJOR',
+    pass_rate DECIMAL(6,2),
+    window_from VARCHAR(64),
+    window_to VARCHAR(64),
+    status VARCHAR(16) DEFAULT 'OPEN',
+    create_time DATETIME,
+    handle_time DATETIME,
+    handler VARCHAR(64),
+    KEY idx_qa_stream_alert_status (status, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ---------------------------- 数据迁移映射 dgp-migration ----------------------------
+CREATE TABLE IF NOT EXISTS mig_project (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT DEFAULT 1,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(128) NOT NULL,
+    source_table VARCHAR(128) NOT NULL,
+    target_table VARCHAR(128) NOT NULL,
+    mode VARCHAR(16) DEFAULT 'FULL',
+    watermark_col VARCHAR(64),
+    last_watermark VARCHAR(64),
+    replace_target INT DEFAULT 1,
+    status VARCHAR(16) DEFAULT 'DRAFT',
+    description VARCHAR(500),
+    last_run_time DATETIME,
+    owner VARCHAR(64),
+    create_time DATETIME,
+    update_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS mig_mapping (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    source_column VARCHAR(64),
+    source_type VARCHAR(32),
+    target_column VARCHAR(64) NOT NULL,
+    target_type VARCHAR(32),
+    transform_type VARCHAR(16) DEFAULT 'DIRECT',
+    transform_expr VARCHAR(500),
+    default_value VARCHAR(255),
+    sort_no INT DEFAULT 0,
+    KEY idx_mig_mapping_project (project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS mig_check (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    check_type VARCHAR(16) NOT NULL,
+    column_name VARCHAR(64),
+    tolerance DECIMAL(8,4) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS mig_run (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    run_mode VARCHAR(16) DEFAULT 'MANUAL',
+    status VARCHAR(16) DEFAULT 'RUNNING',
+    start_time DATETIME,
+    end_time DATETIME,
+    source_rows BIGINT DEFAULT 0,
+    target_rows BIGINT DEFAULT 0,
+    inserted_rows BIGINT DEFAULT 0,
+    failed_rows BIGINT DEFAULT 0,
+    message VARCHAR(500),
+    operator VARCHAR(64),
+    KEY idx_mig_run_project (project_id, start_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS mig_diff (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    run_id BIGINT NOT NULL,
+    check_type VARCHAR(16),
+    column_name VARCHAR(64),
+    expected_val VARCHAR(255),
+    actual_val VARCHAR(255),
+    diff_val VARCHAR(255),
+    status VARCHAR(16) DEFAULT 'PASS',
+    detail VARCHAR(500),
+    KEY idx_mig_diff_run (run_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 热查询索引

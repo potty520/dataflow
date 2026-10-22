@@ -28,6 +28,7 @@ public class SeedRunner implements CommandLineRunner {
     private final ServiceSeeder serviceSeeder;
     private final AssetSeeder assetSeeder;
     private final IndustrySeeder industrySeeder;
+    private final StreamMigSeeder streamMigSeeder;
     private final MetaCollectService collectService;
 
     @Value("${dgp.seed-demo-data:true}")
@@ -36,7 +37,7 @@ public class SeedRunner implements CommandLineRunner {
     public SeedRunner(Db db, MetaSeeder metaSeeder, SourceDataSeeder sourceDataSeeder, ModelSeeder modelSeeder,
                       IntegrationSeeder integrationSeeder, QualitySeeder qualitySeeder, SecuritySeeder securitySeeder,
                       ServiceSeeder serviceSeeder, AssetSeeder assetSeeder, IndustrySeeder industrySeeder,
-                      MetaCollectService collectService) {
+                      StreamMigSeeder streamMigSeeder, MetaCollectService collectService) {
         this.db = db;
         this.metaSeeder = metaSeeder;
         this.sourceDataSeeder = sourceDataSeeder;
@@ -47,6 +48,7 @@ public class SeedRunner implements CommandLineRunner {
         this.serviceSeeder = serviceSeeder;
         this.assetSeeder = assetSeeder;
         this.industrySeeder = industrySeeder;
+        this.streamMigSeeder = streamMigSeeder;
         this.collectService = collectService;
     }
 
@@ -56,6 +58,8 @@ public class SeedRunner implements CommandLineRunner {
         try {
             metaSeeder.syncRolePerms();
             metaSeeder.seedOrgAndDict();
+            // 流式质检/数据迁移演示数据：幂等，已有库升级时也会补种
+            streamMigSeeder.seed();
         } catch (Exception e) {
             log.warn("内置角色权限/基础数据同步失败：{}", e.getMessage());
         }

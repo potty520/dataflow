@@ -244,29 +244,33 @@ public class MetaSeeder {
                 + "integration:datasource:view,integration:datasource:test,integration:job:view,integration:job:create,integration:job:edit,"
                 + "integration:job:run,integration:job:script,integration:sql:edit,integration:adhoc:query,integration:overview:view,"
                 + "integration:sandbox:view,workflow:definition:view,workflow:definition:trigger,workflow:instance:view,workflow:overview:view,"
+                + "quality:stream:view,quality:stream:create,quality:stream:edit,quality:stream:exec,"
+                + "migration:project:view,migration:project:create,migration:project:edit,migration:project:exec,migration:project:reconcile,"
                 + "asset:catalog:view,asset:map:view,asset:category:view,quality:rule:view,quality:check:view,quality:report:view,"
                 + "report:template:view";
         String quality = "metadata:overview:view,metadata:table:view,metadata:column:view,metadata:search,metadata:lineage:view,"
                 + "quality:rule:view,quality:rule:create,quality:rule:edit,quality:rule:audit,quality:rule:exec,quality:template:view,"
                 + "quality:rule:batch,quality:check:view,quality:check:create,quality:check:exec,quality:report:view,quality:report:export,"
                 + "quality:score:view,quality:score:config,quality:issue:view,quality:issue:dispatch,quality:issue:handle,quality:issue:review,"
-                + "quality:overview:view,standard:element:view,standard:mapping:view,asset:catalog:view,asset:map:view,asset:category:view,"
+                + "quality:overview:view,quality:stream:view,quality:stream:create,quality:stream:edit,quality:stream:exec,quality:stream:handle,"
+                + "standard:element:view,standard:mapping:view,asset:catalog:view,asset:map:view,asset:category:view,"
                 + "report:template:view,report:download";
         String analyst = "metadata:overview:view,metadata:table:view,metadata:column:view,metadata:search,metadata:lineage:view,"
                 + "asset:catalog:view,asset:map:view,asset:metrics:view,asset:label:view,asset:category:view,asset:overview:view,asset:value:view,"
-                + "service:api:view,service:api:test,service:overview:view,quality:report:view,quality:score:view,"
+                + "service:api:view,service:api:test,service:overview:view,quality:report:view,quality:score:view,quality:stream:view,"
                 + "standard:element:view,security:mask:view,security:access:apply,security:access:view,report:template:view";
         String sec = "metadata:overview:view,metadata:table:view,metadata:column:view,metadata:search,metadata:lineage:view,"
                 + "security:sensitive:view,security:sensitive:edit,security:sensitive:scan,security:mask:view,security:mask:create,"
                 + "security:mask:edit,security:mask:approve,security:access:view,security:access:approve,security:access:revoke,"
                 + "security:audit:view,security:audit:export,security:alert:view,security:alert:handle,security:alert:edit,"
-                + "security:overview:view,asset:catalog:view,asset:category:view,report:template:view,report:download";
+                + "security:overview:view,asset:catalog:view,asset:category:view,report:template:view,report:download,quality:stream:view";
         String consultant = "metadata:overview:view,metadata:table:view,metadata:column:view,metadata:search,metadata:lineage:view,"
                 + "industry:package:view,industry:package:import,industry:package:export,industry:package:instantiate,"
                 + "industry:package:enable,industry:terminology:view,industry:terminology:edit,industry:lineage:view,industry:lineage:edit,"
                 + "industry:overview:view,standard:element:view,standard:element:create,standard:element:edit,standard:element:publish,"
                 + "standard:mapping:view,standard:compliance:view,model:model:view,quality:rule:view,quality:template:view,"
-                + "quality:check:view,quality:score:view,quality:overview:view,quality:issue:view,quality:report:view,"
+                + "quality:check:view,quality:score:view,quality:overview:view,quality:issue:view,quality:report:view,quality:stream:view,"
+                + "migration:project:view,migration:project:create,migration:project:edit,migration:project:exec,migration:project:reconcile,"
                 + "asset:catalog:view,asset:category:view,report:template:view";
         return new Object[][]{
                 {"ROLE_GOV_ADMIN", "数据治理管理员", admin, "平台配置、权限管理、治理策略制定"},

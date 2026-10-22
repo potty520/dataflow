@@ -28,6 +28,7 @@ public final class MenuCatalog {
         out.add(item("integration", "数据集成", "/integration", "Operation", "integration:job:view", "integration"));
         out.add(item("workflow", "调度与工作流", "/workflow", "Timer", "workflow:definition:view", "workflow"));
         out.add(item("quality", "数据质量", "/quality", "CircleCheck", "quality:rule:view", "quality"));
+        out.add(item("quality-stream", "流式质检", "/quality/stream", "Odometer", "quality:stream:view", "quality"));
         out.add(item("quality-issue", "问题闭环", "/quality/issues", "Warning", "quality:issue:view", "quality"));
         out.add(item("quality-report", "质量报告", "/quality/reports", "Document", "quality:report:view", "quality"));
         out.add(item("security", "数据安全", "/security", "Lock", "security:mask:view", "security"));
@@ -35,6 +36,7 @@ public final class MenuCatalog {
         out.add(item("asset", "数据资产", "/asset", "Files", "asset:catalog:view", "asset"));
         out.add(item("asset-map", "资产地图", "/asset/map", "MapLocation", "asset:map:view", "asset"));
         out.add(item("service", "数据服务", "/service", "Promotion", "service:api:view", "service"));
+        out.add(item("migration", "数据迁移", "/migration", "Switch", "migration:project:view", "integration"));
         out.add(item("industry", "行业适配", "/industry", "Box", "industry:package:view", "industry"));
         out.add(item("admin", "系统管理", "/admin", "Setting", "sys:config:view", "admin"));
         return out;

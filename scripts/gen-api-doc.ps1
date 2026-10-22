@@ -1,8 +1,9 @@
-﻿$ErrorActionPreference = "Stop"
+﻿param([string]$Base = "http://127.0.0.1:8080")
+$ErrorActionPreference = "Stop"
 $root = "C:\Users\Administrator\Documents\1\datagov"
-$lg = Invoke-WebRequest -Uri "http://127.0.0.1:8080/api/v1/auth/login" -Method POST -UseBasicParsing -ContentType "application/json" -Body '{"username":"admin","password":"Dgp@2026"}'
+$lg = Invoke-WebRequest -Uri "$Base/api/v1/auth/login" -Method POST -UseBasicParsing -ContentType "application/json" -Body '{"username":"admin","password":"Dgp@2026"}'
 $tok = ($lg.Content | ConvertFrom-Json).data.accessToken
-$apis = Invoke-WebRequest -Uri "http://127.0.0.1:8080/api/v1/admin/apis" -Headers @{ Authorization = "Bearer $tok" } -UseBasicParsing
+$apis = Invoke-WebRequest -Uri "$Base/api/v1/admin/apis" -Headers @{ Authorization = "Bearer $tok" } -UseBasicParsing
 $recs = ($apis.Content | ConvertFrom-Json).data.records
 $bt = [char]96
 $lines = New-Object System.Collections.Generic.List[string]

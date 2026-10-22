@@ -134,6 +134,48 @@ export const qualityApi = {
   stats: () => http.get('/api/v1/quality/stats/overview', { silent: true })
 }
 
+export const streamApi = {
+  overview: () => http.get('/api/v1/quality/stream/overview', { silent: true }),
+  health: () => http.get('/api/v1/quality/stream/health', { silent: true }),
+  tables: () => http.get('/api/v1/quality/stream/tables'),
+  columns: (table) => http.get('/api/v1/quality/stream/columns', { params: { table } }),
+  sources: (params) => http.get('/api/v1/quality/stream/sources', { params }),
+  createSource: (data) => http.post('/api/v1/quality/stream/sources', data),
+  updateSource: (id, data) => http.put(`/api/v1/quality/stream/sources/${id}`, data),
+  deleteSource: (id) => http.delete(`/api/v1/quality/stream/sources/${id}`),
+  runSource: (id) => http.post(`/api/v1/quality/stream/sources/${id}/run`),
+  runAll: () => http.post('/api/v1/quality/stream/sources/run-all'),
+  resetWatermark: (id) => http.post(`/api/v1/quality/stream/sources/${id}/reset-watermark`),
+  rules: (params) => http.get('/api/v1/quality/stream/rules', { params }),
+  createRule: (data) => http.post('/api/v1/quality/stream/rules', data),
+  updateRule: (id, data) => http.put(`/api/v1/quality/stream/rules/${id}`, data),
+  deleteRule: (id) => http.delete(`/api/v1/quality/stream/rules/${id}`),
+  results: (params) => http.get('/api/v1/quality/stream/results', { params }),
+  alerts: (params) => http.get('/api/v1/quality/stream/alerts', { params }),
+  handleAlert: (id) => http.post(`/api/v1/quality/stream/alerts/${id}/handle`)
+}
+
+export const migrationApi = {
+  overview: () => http.get('/api/v1/migration/overview', { silent: true }),
+  tables: (params) => http.get('/api/v1/migration/tables', { params }),
+  columns: (table) => http.get(`/api/v1/migration/tables/${table}/columns`),
+  projects: (params) => http.get('/api/v1/migration/projects', { params }),
+  project: (id) => http.get(`/api/v1/migration/projects/${id}`),
+  createProject: (data) => http.post('/api/v1/migration/projects', data),
+  updateProject: (id, data) => http.put(`/api/v1/migration/projects/${id}`, data),
+  deleteProject: (id) => http.delete(`/api/v1/migration/projects/${id}`),
+  mappings: (id) => http.get(`/api/v1/migration/projects/${id}/mappings`),
+  recommend: (id) => http.get(`/api/v1/migration/projects/${id}/recommend`),
+  saveMappings: (id, mappings) => http.post(`/api/v1/migration/projects/${id}/mappings`, { mappings }),
+  saveChecks: (id, checks) => http.post(`/api/v1/migration/projects/${id}/checks`, { checks }),
+  precheck: (id) => http.post(`/api/v1/migration/projects/${id}/precheck`),
+  statement: (id) => http.get(`/api/v1/migration/projects/${id}/statement`),
+  run: (id, replace) => http.post(`/api/v1/migration/projects/${id}/run`, { replace: replace ? 1 : 0 }),
+  runs: (id, params) => http.get(`/api/v1/migration/projects/${id}/runs`, { params }),
+  runDetail: (runId) => http.get(`/api/v1/migration/runs/${runId}`),
+  reconcile: (runId) => http.post(`/api/v1/migration/runs/${runId}/reconcile`),
+  diffs: (runId) => http.get(`/api/v1/migration/runs/${runId}/diffs`)
+}
 export const securityApi = {
   sensitiveRules: () => http.get('/api/v1/security/sensitive/rules'),
   scan: (data) => http.post('/api/v1/security/sensitive/scan', data || {}),
