@@ -259,8 +259,8 @@ public class CrossMigrationService {
     // ------------------------------------------------------------ 内部
     private long copy(Connection sc, Connection tc, String sql, Object[] params,
                       String target, List<String> targets, int batchSize) throws Exception {
-        String insert = "INSERT INTO " + target + " (" + String.join(",", targets) + ") VALUES ("
-                + String.join(",", Collections.nCopies(targets.size(), "?")) + ")";
+        int n = targets.size();
+        int chunk = Math.max(50, Math.min(batchSize, 2000));   // 每条多行 INSERT 的行数
         long rows = 0;
         boolean auto = tc.getAutoCommit();
         tc.setAutoCommit(false);
@@ -269,27 +269,29 @@ public class CrossMigrationService {
                 for (int i = 0; i < params.length; i++) ps.setObject(i + 1, params[i]);
             }
             try {
-                ps.setFetchSize(batchSize);
+                // MySQL 已启用 useCursorFetch 时按 fetchSize 流式取数；其它驱动按批取
+                ps.setFetchSize(chunk);
             } catch (Exception ignore) {
                 // 驱动不支持
             }
-            try (ResultSet rs = ps.executeQuery(); PreparedStatement ins = tc.prepareStatement(insert)) {
-                int n = targets.size();
-                int batch = 0;
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Object[]> buf = new ArrayList<>(chunk);
                 while (rs.next()) {
-                    for (int i = 1; i <= n; i++) ins.setObject(i, rs.getObject(i));
-                    ins.addBatch();
-                    rows++;
-                    if (++batch >= batchSize) {
-                        ins.executeBatch();
-                        tc.commit();
-                        batch = 0;
+                    Object[] row = new Object[n];
+                    for (int i = 1; i <= n; i++) row[i - 1] = rs.getObject(i);
+                    buf.add(row);
+                    if (buf.size() >= chunk) {
+                        execMultiRow(tc, target, targets, buf);
+                        rows += buf.size();
+                        buf.clear();
                     }
                 }
-                if (batch > 0) {
-                    ins.executeBatch();
-                    tc.commit();
+                if (!buf.isEmpty()) {
+                    execMultiRow(tc, target, targets, buf);
+                    rows += buf.size();
+                    buf.clear();
                 }
+                tc.commit();
             } catch (Exception e) {
                 tc.rollback();
                 throw e;
@@ -298,6 +300,24 @@ public class CrossMigrationService {
             }
         }
         return rows;
+    }
+
+    /** 多行 INSERT：一条语句写入多行，减少提交与网络往返。 */
+    private void execMultiRow(Connection conn, String target, List<String> cols, List<Object[]> rows) throws Exception {
+        if (rows.isEmpty()) return;
+        StringBuilder sql = new StringBuilder("INSERT INTO ").append(target).append(" (")
+                .append(String.join(",", cols)).append(") VALUES ");
+        for (int r = 0; r < rows.size(); r++) {
+            if (r > 0) sql.append(',');
+            sql.append('(').append(String.join(",", Collections.nCopies(cols.size(), "?"))).append(')');
+        }
+        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            for (Object[] row : rows) {
+                for (Object v : row) ps.setObject(idx++, v);
+            }
+            ps.executeUpdate();
+        }
     }
 
     private String mappedTargetWm(long projectId, String wm) {

@@ -246,9 +246,21 @@ public class FileMigrationService {
     private long writeDelimited(Connection conn, String sql, List<String> headers, Writer out, String fmt) throws Exception {
         char delim = delimiterOf(fmt);
         boolean txt = isTxt(fmt);
+        boolean cursorFetch = false;
+        try {
+            String u = conn.getMetaData().getURL();
+            cursorFetch = u != null && u.toLowerCase().contains("usecursorfetch=true");
+        } catch (Exception ignore) {
+            // ignore
+        }
         try (Statement st = conn.createStatement()) {
             try {
-                st.setFetchSize(500);
+                // MySQL：URL 已启用 useCursorFetch 时用正数 fetchSize；否则用 Integer.MIN_VALUE 流式逐行取
+                if (conn.getMetaData().getDatabaseProductName().toLowerCase().contains("mysql") && !cursorFetch) {
+                    st.setFetchSize(Integer.MIN_VALUE);
+                } else {
+                    st.setFetchSize(500);
+                }
             } catch (Exception ignore) {
                 // 部分驱动不支持
             }
@@ -298,33 +310,30 @@ public class FileMigrationService {
                     + String.join(",", java.util.Collections.nCopies(cols.size(), "?")) + ")";
             boolean auto = conn.getAutoCommit();
             conn.setAutoCommit(false);
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            int chunk = 500;
+            List<List<Object>> buf = new ArrayList<>(chunk);
+            try {
                 String line;
-                int batch = 0;
-                int batchSize = 500;
                 while ((line = reader.readLine()) != null) {
                     if (line.isBlank()) continue;
                     List<String> vals = parseLine(line, fmt);
+                    List<Object> row = new ArrayList<>(cols.size());
                     for (int i = 0; i < cols.size(); i++) {
                         String v = i < vals.size() ? vals.get(i) : null;
-                        if (v == null || v.isEmpty()) {
-                            ps.setObject(i + 1, null);
-                        } else {
-                            ps.setObject(i + 1, v);
-                        }
+                        row.add((v == null || v.isEmpty()) ? null : v);
                     }
-                    ps.addBatch();
+                    buf.add(row);
                     count++;
-                    if (++batch >= batchSize) {
-                        ps.executeBatch();
-                        conn.commit();
-                        batch = 0;
+                    if (buf.size() >= chunk) {
+                        execMultiRowInsert(conn, target, cols, buf);
+                        buf.clear();
                     }
                 }
-                if (batch > 0) {
-                    ps.executeBatch();
-                    conn.commit();
+                if (!buf.isEmpty()) {
+                    execMultiRowInsert(conn, target, cols, buf);
+                    buf.clear();
                 }
+                conn.commit();
             } catch (Exception e) {
                 conn.rollback();
                 throw e;
@@ -479,6 +488,25 @@ public class FileMigrationService {
         }
         out.add(sb.toString());
         return out;
+    }
+
+
+    /** 多行 INSERT：一条语句写多行，导入速度显著提升。 */
+    private void execMultiRowInsert(Connection conn, String target, List<String> cols, List<List<Object>> rows) throws Exception {
+        if (rows.isEmpty()) return;
+        StringBuilder sql = new StringBuilder("INSERT INTO ").append(target).append(" (")
+                .append(String.join(",", cols)).append(") VALUES ");
+        for (int r = 0; r < rows.size(); r++) {
+            if (r > 0) sql.append(',');
+            sql.append('(').append(String.join(",", java.util.Collections.nCopies(cols.size(), "?"))).append(')');
+        }
+        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            for (List<Object> row : rows) {
+                for (Object v : row) ps.setObject(idx++, v);
+            }
+            ps.executeUpdate();
+        }
     }
 
     private static String csvEscape(String v) {

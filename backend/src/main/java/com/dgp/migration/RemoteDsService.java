@@ -177,9 +177,11 @@ public class RemoteDsService {
             if ("POSTGRESQL".equals(dbType)) {
                 url = "jdbc:postgresql://" + jdbcHost + ":" + jdbcPort + "/" + Db.str(ds.get("dbName"));
             } else {
+                // useCursorFetch：按 fetchSize 流式取数（避免整表进内存）；rewriteBatchedStatements：批量写提速
                 url = "jdbc:mysql://" + jdbcHost + ":" + jdbcPort + "/" + Db.str(ds.get("dbName"))
                         + "?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai"
-                        + "&useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=8000&socketTimeout=60000";
+                        + "&useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=8000&socketTimeout=600000"
+                        + "&useCursorFetch=true&useServerPrepStmts=true&rewriteBatchedStatements=true";
             }
             Connection conn = DriverManager.getConnection(url, Db.str(ds.get("username")),
                     dec(Db.str(ds.get("passwordEnc"))));
