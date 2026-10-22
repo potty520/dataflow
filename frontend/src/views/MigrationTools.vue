@@ -63,6 +63,9 @@
                   {{ row.direction === 'EXPORT' ? '导出' : '导入' }}</el-tag>
               </template>
             </el-table-column>
+            <el-table-column label="格式" width="110">
+              <template #default="{ row }">{{ row.fileFormat === 'TXT' ? 'TXT(Tab)' : row.fileFormat === 'TXT_PIPE' ? 'TXT(|)' : 'CSV' }}</template>
+            </el-table-column>
             <el-table-column label="表" min-width="190">
               <template #default="{ row }">
                 <span v-if="row.direction === 'EXPORT'">{{ row.sourceTable || '(项目源表)' }}</span>
@@ -141,6 +144,13 @@
             <el-option v-for="p in projects" :key="p.id" :label="`${p.code} ${p.name}`" :value="p.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="文件格式">
+          <el-select v-model="taskForm.fileFormat" style="width:230px">
+            <el-option label="CSV（逗号分隔）" value="CSV" />
+            <el-option label="TXT（制表符分隔）" value="TXT" />
+            <el-option label="TXT（竖线 | 分隔）" value="TXT_PIPE" />
+          </el-select>
+        </el-form-item>
         <el-form-item v-if="taskForm.direction === 'EXPORT'" label="源表">
           <el-input v-model="taskForm.sourceTable" placeholder="不填则用项目源表" />
         </el-form-item>
@@ -151,7 +161,7 @@
         <el-form-item label="账号"><el-input v-model="taskForm.remoteUser" /></el-form-item>
         <el-form-item label="密码"><el-input v-model="taskForm.remotePassword" type="password" show-password placeholder="留空表示不修改" /></el-form-item>
         <el-form-item label="远端目录"><el-input v-model="taskForm.remoteDir" /></el-form-item>
-        <el-form-item label="文件名"><el-input v-model="taskForm.remoteFile" placeholder="如 ods_order.csv" /></el-form-item>
+        <el-form-item label="文件名"><el-input v-model="taskForm.remoteFile" placeholder="如 ods_order.txt / ods_order.csv" /></el-form-item>
         <el-form-item label="压缩"><el-switch v-model="taskForm.compressBool" active-text="gzip" /></el-form-item>
         <el-divider content-position="left">FTP 代理（可选）</el-divider>
         <el-form-item label="代理类型">
@@ -211,7 +221,7 @@ const taskLoading = ref(false)
 const taskList = ref([])
 const taskDialog = ref(false)
 const projects = ref([])
-const taskForm = reactive({ id: null, code: '', name: '', direction: 'EXPORT', projectId: null,
+const taskForm = reactive({ id: null, code: '', name: '', direction: 'EXPORT', projectId: null, fileFormat: 'CSV',
   sourceTable: '', targetTable: '', remoteHost: '', remotePort: 21, remoteUser: '', remotePassword: '',
   remoteDir: '/', remoteFile: '', compressBool: false,
   proxyType: 'DIRECT', proxyHost: '', proxyPort: 1080, proxyUser: '', proxyPassword: '' })
@@ -274,7 +284,7 @@ async function testFormDs() {
 }
 
 function openTask(row) {
-  Object.assign(taskForm, { id: null, code: '', name: '', direction: 'EXPORT', projectId: null,
+  Object.assign(taskForm, { id: null, code: '', name: '', direction: 'EXPORT', projectId: null, fileFormat: 'CSV',
     sourceTable: '', targetTable: '', remoteHost: '', remotePort: 21, remoteUser: '', remotePassword: '',
     remoteDir: '/', remoteFile: '', compressBool: false,
     proxyType: 'DIRECT', proxyHost: '', proxyPort: 1080, proxyUser: '', proxyPassword: '' })

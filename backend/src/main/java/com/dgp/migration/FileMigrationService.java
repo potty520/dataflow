@@ -236,12 +236,16 @@ public class FileMigrationService {
              Writer out = gz
                      ? new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(Files.newOutputStream(local)), StandardCharsets.UTF_8))
                      : Files.newBufferedWriter(local, StandardCharsets.UTF_8)) {
-            count = writeCsv(conn, sql, headers, out);
+            String fmt = formatOf(task);
+            count = writeDelimited(conn, sql, headers, out, fmt);
         }
         return count;
     }
 
-    private long writeCsv(Connection conn, String sql, List<String> headers, Writer out) throws Exception {
+    /** 按任务配置的文件格式写分隔文本：CSV（逗号+引号）或 TXT（制表符/竖线+反斜杠转义）。 */
+    private long writeDelimited(Connection conn, String sql, List<String> headers, Writer out, String fmt) throws Exception {
+        char delim = delimiterOf(fmt);
+        boolean txt = isTxt(fmt);
         try (Statement st = conn.createStatement()) {
             try {
                 st.setFetchSize(500);
@@ -251,16 +255,18 @@ public class FileMigrationService {
             try (ResultSet rs = st.executeQuery(sql)) {
                 int n = rs.getMetaData().getColumnCount();
                 for (int i = 1; i <= n; i++) {
-                    if (i > 1) out.write(',');
-                    out.write(csvEscape(headers.size() >= i ? headers.get(i - 1) : rs.getMetaData().getColumnLabel(i)));
+                    if (i > 1) out.write(delim);
+                    String h = headers.size() >= i ? headers.get(i - 1) : rs.getMetaData().getColumnLabel(i);
+                    out.write(txt ? txtEscape(h) : csvEscape(h));
                 }
                 out.write('\n');
                 long rows = 0;
                 while (rs.next()) {
                     for (int i = 1; i <= n; i++) {
-                        if (i > 1) out.write(',');
+                        if (i > 1) out.write(delim);
                         Object v = rs.getObject(i);
-                        out.write(csvEscape(v == null ? "" : String.valueOf(v)));
+                        String s = v == null ? "" : String.valueOf(v);
+                        out.write(txt ? txtEscape(s) : csvEscape(s));
                     }
                     out.write('\n');
                     rows++;
@@ -285,7 +291,8 @@ public class FileMigrationService {
              Connection conn = openTarget(projectId, task)) {
             String header = reader.readLine();
             if (header == null) throw new BizException(ErrorCode.PARAM_INVALID, "文件为空");
-            List<String> cols = parseCsvLine(header);
+            String fmt = formatOf(task);
+            List<String> cols = parseLine(header, fmt);
             for (String c : cols) Db.identifier(c);
             String sql = "INSERT INTO " + target + " (" + String.join(",", cols) + ") VALUES ("
                     + String.join(",", java.util.Collections.nCopies(cols.size(), "?")) + ")";
@@ -297,7 +304,7 @@ public class FileMigrationService {
                 int batchSize = 500;
                 while ((line = reader.readLine()) != null) {
                     if (line.isBlank()) continue;
-                    List<String> vals = parseCsvLine(line);
+                    List<String> vals = parseLine(line, fmt);
                     for (int i = 0; i < cols.size(); i++) {
                         String v = i < vals.size() ? vals.get(i) : null;
                         if (v == null || v.isEmpty()) {
@@ -382,6 +389,96 @@ public class FileMigrationService {
                     + (Db.str(m.get("defaultValue")) == null ? "" : Db.str(m.get("defaultValue")).replace("'", "''")) + "')";
             default -> srcId == null ? "NULL" : srcId;
         };
+    }
+
+
+    /** 任务文件格式：CSV（默认）/ TXT（制表符）/ TXT_PIPE（竖线）。 */
+    private static String formatOf(Map<String, Object> task) {
+        String f = Db.str(task.get("fileFormat"));
+        return (f == null || f.isBlank()) ? "CSV" : f.toUpperCase();
+    }
+
+    private static boolean isTxt(String fmt) {
+        return fmt.startsWith("TXT");
+    }
+
+    private static char delimiterOf(String fmt) {
+        return switch (fmt) {
+            case "TXT", "TXT_TAB" -> '\t';
+            case "TXT_PIPE", "TXT_PIPE_SEPARATED" -> '|';
+            default -> ',';
+        };
+    }
+
+    /** TXT 字段转义：反斜杠、制表符、换行。 */
+    static String txtEscape(String v) {
+        if (v == null) return "";
+        return v.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r");
+    }
+
+    /** TXT 行解析：按分隔符切分并还原转义。 */
+    static List<String> parseTxtLine(String line, char delim) {
+        List<String> out = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '\\' && i + 1 < line.length()) {
+                char nx = line.charAt(++i);
+                switch (nx) {
+                    case 't' -> sb.append('\t');
+                    case 'n' -> sb.append('\n');
+                    case 'r' -> sb.append('\r');
+                    case '\\' -> sb.append('\\');
+                    default -> sb.append(nx);
+                }
+            } else if (c == delim) {
+                out.add(sb.toString());
+                sb.setLength(0);
+            } else {
+                sb.append(c);
+            }
+        }
+        out.add(sb.toString());
+        return out;
+    }
+
+    /** 按格式解析一行（CSV 走引号解析，TXT 走转义解析）。 */
+    static List<String> parseLine(String line, String fmt) {
+        if (isTxt(fmt)) return parseTxtLine(line, delimiterOf(fmt));
+        char delim = delimiterOf(fmt);
+        return parseCsvLineWithDelim(line, delim);
+    }
+
+    /** 带自定义分隔符的 CSV 解析（默认逗号；兼容竖线等）。 */
+    static List<String> parseCsvLineWithDelim(String line, char delim) {
+        if (delim == ',') return parseCsvLine(line);
+        List<String> out = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        boolean inQuote = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (inQuote) {
+                if (c == '"') {
+                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                        sb.append('"');
+                        i++;
+                    } else {
+                        inQuote = false;
+                    }
+                } else {
+                    sb.append(c);
+                }
+            } else if (c == '"') {
+                inQuote = true;
+            } else if (c == delim) {
+                out.add(sb.toString());
+                sb.setLength(0);
+            } else {
+                sb.append(c);
+            }
+        }
+        out.add(sb.toString());
+        return out;
     }
 
     private static String csvEscape(String v) {

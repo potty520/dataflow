@@ -25,6 +25,15 @@ function Check($name, $cond, $detail) {
 function Skip($name, $why) { $script:skip++; Write-Output ("  SKIP  " + $name + "  ->  " + $why) }
 function Section($t) { Write-Output ""; Write-Output ("=== " + $t + " ===") }
 function AuthH($t) { return @{ Authorization = "Bearer $t" } }
+function LoginRetry($u, $p) {
+    for ($i = 0; $i -lt 4; $i++) {
+        $r = C "POST" "/api/v1/auth/login" $null ('{"username":"' + $u + '","password":"' + $p + '"}')
+        $tk = (D $r).accessToken
+        if ($tk) { return $tk }
+        Start-Sleep -Seconds 3
+    }
+    return $null
+}
 function JStr($v) { if ($null -eq $v -or "$v" -eq "") { return 'null' } else { return '"' + ("$v" -replace '"', '\"') + '"' } }
 
 $dbPass = $env:DGP_DB_PASSWORD
@@ -36,10 +45,11 @@ if (-not $proxyHost) { $proxyHost = "127.0.0.1" }
 $proxyPort = $env:DGP_SOCKS5_PORT
 if (-not $proxyPort) { $proxyPort = 1080 }
 
-$lg = C "POST" "/api/v1/auth/login" $null '{"username":"admin","password":"Dgp@2026"}'
-$tok = (D $lg).accessToken
+$tok = LoginRetry "admin" "Dgp@2026"
 if (-not $tok) { Write-Output "登录失败，终止"; exit 1 }
 $HA = AuthH $tok
+$anaTok = LoginRetry "wangwu" "Dgp@2026"
+$HN = AuthH $anaTok
 $sfx = Get-Random -Maximum 999999
 $tgtCross = "zz_cross_$sfx"
 $tgtProxy = "zz_cross_proxy_$sfx"
@@ -179,12 +189,55 @@ else {
     Check "经代理导出 FTP -> 行数>0" (($r2.s -eq 200) -and ($r2d.rows -gt 0)) ("rows=" + $r2d.rows + " bytes=" + $r2d.bytes)
 }
 
+# ================= V9. TXT 文本格式 =================
+Section "V9. TXT 文本格式（TXT / TXT_PIPE）"
+if (-not $ftpPass) { Skip "TXT 文本格式" "未设置 DGP_FTP_PASS" }
+else {
+    $txtFile = "dgp_verify_$sfx.txt"
+    $txtExpBody = '{"code":"FTP-TXTEXP-' + $sfx + '","name":"验收-TXT导出","direction":"EXPORT","projectId":' + $projId + ',"fileFormat":"TXT","remoteHost":"' + $ftpHost + '","remotePort":21,"remoteUser":"dgpftp","remotePassword":"' + $ftpPass + '","remoteDir":"/upload","remoteFile":"' + $txtFile + '","proxyType":"DIRECT"}'
+    $te = C "POST" "/api/v1/migration/files/tasks" $HA $txtExpBody
+    $teId = (D $te).id
+    if ($teId) { $taskIds += $teId }
+    $ter = C "POST" ("/api/v1/migration/files/tasks/" + $teId + "/run") $HA $null
+    $terd = D $ter
+    Check "TXT 导出（制表符）-> 行数>0 且校验和" (($ter.s -eq 200) -and ($terd.rows -gt 0) -and ($terd.checksum.Length -eq 64)) ("rows=" + $terd.rows + " bytes=" + $terd.bytes)
+
+    $txtImpBody = '{"code":"FTP-TXTIMP-' + $sfx + '","name":"验收-TXT导入","direction":"IMPORT","projectId":' + $projId + ',"fileFormat":"TXT","remoteHost":"' + $ftpHost + '","remotePort":21,"remoteUser":"dgpftp","remotePassword":"' + $ftpPass + '","remoteDir":"/upload","remoteFile":"' + $txtFile + '","proxyType":"DIRECT"}'
+    $ti = C "POST" "/api/v1/migration/files/tasks" $HA $txtImpBody
+    $tiId = (D $ti).id
+    if ($tiId) { $taskIds += $tiId }
+    $tir = C "POST" ("/api/v1/migration/files/tasks/" + $tiId + "/run") $HA $null
+    Check "TXT 导入 -> 行数与 TXT 导出一致" ((($tir.s -eq 200)) -and ((D $tir).rows -eq $terd.rows)) ("imported=" + (D $tir).rows + " exported=" + $terd.rows)
+
+    $pipeFile = "dgp_verify_$sfx.psv"
+    $pipeExpBody = '{"code":"FTP-TXPPEXP-' + $sfx + '","name":"验收-TXT竖线导出","direction":"EXPORT","projectId":' + $projId + ',"fileFormat":"TXT_PIPE","remoteHost":"' + $ftpHost + '","remotePort":21,"remoteUser":"dgpftp","remotePassword":"' + $ftpPass + '","remoteDir":"/upload","remoteFile":"' + $pipeFile + '","proxyType":"DIRECT"}'
+    $pse = C "POST" "/api/v1/migration/files/tasks" $HA $pipeExpBody
+    $pseId = (D $pse).id
+    if ($pseId) { $taskIds += $pseId }
+    $pser = C "POST" ("/api/v1/migration/files/tasks/" + $pseId + "/run") $HA $null
+    $pserd = D $pser
+    Check "TXT 竖线导出 -> 行数>0" (($pser.s -eq 200) -and ($pserd.rows -gt 0)) ("rows=" + $pserd.rows + " bytes=" + $pserd.bytes)
+
+    $pipeImpBody = '{"code":"FTP-TXPIMP-' + $sfx + '","name":"验收-TXT竖线导入","direction":"IMPORT","projectId":' + $projId + ',"fileFormat":"TXT_PIPE","remoteHost":"' + $ftpHost + '","remotePort":21,"remoteUser":"dgpftp","remotePassword":"' + $ftpPass + '","remoteDir":"/upload","remoteFile":"' + $pipeFile + '","proxyType":"DIRECT"}'
+    $pi = C "POST" "/api/v1/migration/files/tasks" $HA $pipeImpBody
+    $piId = (D $pi).id
+    if ($piId) { $taskIds += $piId }
+    $pir = C "POST" ("/api/v1/migration/files/tasks/" + $piId + "/run") $HA $null
+    Check "TXT 竖线导入 -> 行数一致" ((($pir.s -eq 200)) -and ((D $pir).rows -eq $pserd.rows)) ("imported=" + (D $pir).rows + " exported=" + $pserd.rows)
+}
+
 # ================= V8. 权限边界 =================
 Section "V8. 权限边界"
-$ana = (D (C "POST" "/api/v1/auth/login" $null '{"username":"wangwu","password":"Dgp@2026"}')).accessToken
-$HN = AuthH $ana
-Check "分析师访问远程数据源 -> 403" ((C "GET" "/api/v1/migration/datasources" $HN $null).s -eq 403) ""
-Check "分析师执行文件迁移 -> 403" ((C "POST" "/api/v1/migration/files/tasks/1/run" $HN $null).s -eq 403) ""
+$anaUser = "va$sfx"
+$anaPwd = "Veri@2026ana"
+$cu = C "POST" "/api/v1/auth/users" $HA ('{"username":"' + $anaUser + '","password":"' + $anaPwd + '","realName":"验收分析师","roleCode":"ROLE_ANALYST"}')
+Check "创建临时分析师账号 -> 200" ($cu.s -eq 200) ("user=" + $anaUser)
+$anaId = (D $cu).id
+$anaTok2 = LoginRetry $anaUser $anaPwd
+$HN2 = AuthH $anaTok2
+Check "分析师访问远程数据源 -> 403" ((C "GET" "/api/v1/migration/datasources" $HN2 $null).s -eq 403) ""
+Check "分析师执行文件迁移 -> 403" ((C "POST" "/api/v1/migration/files/tasks/1/run" $HN2 $null).s -eq 403) ""
+if ($anaId) { $null = C "DELETE" ("/api/v1/auth/users/" + $anaId) $HA $null }
 
 # ================= 清理测试数据 =================
 Section "清理验收数据"

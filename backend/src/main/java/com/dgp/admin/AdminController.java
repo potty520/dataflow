@@ -67,7 +67,10 @@ public class AdminController {
     public Result<Object> createDict(@RequestBody Map<String, Object> b) {
         String code = Req.str(b.get("dictCode"));
         if (Req.blank(code)) throw new BizException(ErrorCode.PARAM_INVALID, "dictCode 不能为空");
-        String items = JsonUtil.toJson(b.getOrDefault("items", List.of()));
+        Map<String, Object> old = db.one("SELECT items FROM sys_dict WHERE dict_code=?", code);
+        // 未显式传 items 时保留原字典项，避免"新建同名编码"把既有字典项误擦成 []
+        String items = b.containsKey("items") ? JsonUtil.toJson(b.get("items"))
+                : (old == null || old.get("items") == null ? "[]" : String.valueOf(old.get("items")));
         db.update("DELETE FROM sys_dict WHERE dict_code=?", code);
         long id = db.insert("INSERT INTO sys_dict(dict_code,dict_name,items,update_time,create_time) VALUES(?,?,?,?,?)",
                 code, b.get("dictName"), items, LocalDateTime.now(), LocalDateTime.now());
