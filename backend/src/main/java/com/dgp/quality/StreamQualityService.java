@@ -258,12 +258,20 @@ public class StreamQualityService {
                         + "COUNT(*) AS runs, SUM(r.fail_count) AS fail_rows FROM qa_stream_result r "
                         + "JOIN qa_stream_source s ON s.id=r.source_id WHERE r.run_time>=? "
                         + "GROUP BY s.code, s.name ORDER BY runs DESC", dayAgo);
+        // 24 小时趋势：单条 GROUP BY（原实现逐小时查 24 次，是概览接口的主要开销）
+        Map<Integer, Object> hourMap = new java.util.HashMap<>();
+        for (Map<String, Object> row : db.list(
+                "SELECT HOUR(run_time) AS h, ROUND(AVG(pass_rate),2) AS v FROM qa_stream_result "
+                        + "WHERE run_time>=? GROUP BY HOUR(run_time)", dayAgo)) {
+            Object h = row.get("h");
+            Integer key = h == null ? null : Integer.valueOf(String.valueOf(h));
+            if (key != null) hourMap.put(key, row.get("v"));
+        }
         List<Map<String, Object>> trend = new ArrayList<>();
         for (int i = 23; i >= 0; i--) {
             LocalDateTime bucket = LocalDateTime.now().minusHours(i).withMinute(0).withSecond(0).withNano(0);
-            Object v = db.scalar("SELECT ROUND(AVG(pass_rate),2) FROM qa_stream_result "
-                    + "WHERE run_time>=? AND run_time<?", bucket, bucket.plusHours(1));
-            trend.add(M.of("hour", bucket.format(DateTimeFormatter.ofPattern("HH:00")), "passRate", v));
+            trend.add(M.of("hour", bucket.format(DateTimeFormatter.ofPattern("HH:00")),
+                    "passRate", hourMap.get(bucket.getHour())));
         }
         return M.of(
                 "sourceCount", db.count("SELECT COUNT(*) FROM qa_stream_source"),

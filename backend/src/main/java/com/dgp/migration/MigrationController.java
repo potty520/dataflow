@@ -6,6 +6,7 @@ import com.dgp.common.ErrorCode;
 import com.dgp.common.M;
 import com.dgp.common.Req;
 import com.dgp.common.Result;
+import com.dgp.common.TtlCache;
 import com.dgp.security.AuthContext;
 import com.dgp.security.RequirePerm;
 import org.springframework.web.bind.annotation.*;
@@ -37,7 +38,8 @@ public class MigrationController {
     @GetMapping("/overview")
     @RequirePerm("migration:project:view")
     public Result<Object> overview() {
-        return Result.ok(service.overview());
+        Object cached = TtlCache.get("mig:overview:" + AuthContext.tenantId(), 5_000, service::overview);
+        return Result.ok(cached);
     }
 
     /** 可选表（元数据表清单）。 */
@@ -89,6 +91,7 @@ public class MigrationController {
     @PostMapping("/projects")
     @RequirePerm("migration:project:create")
     public Result<Object> createProject(@RequestBody Map<String, Object> b) {
+        TtlCache.evict("mig");
         String code = Req.str(b.get("code"));
         if (Req.blank(code)) throw new BizException(ErrorCode.PARAM_INVALID, "项目编码不能为空");
         if (db.one("SELECT id FROM mig_project WHERE code=?", code) != null) {
@@ -115,6 +118,7 @@ public class MigrationController {
     @PutMapping("/projects/{id}")
     @RequirePerm("migration:project:edit")
     public Result<Object> updateProject(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        TtlCache.evict("mig");
         Map<String, Object> before = requireProject(id);
         String source = Db.identifier(String.valueOf(pick(b, before, "sourceTable")));
         String target = Db.identifier(String.valueOf(pick(b, before, "targetTable")));
@@ -134,6 +138,7 @@ public class MigrationController {
     @DeleteMapping("/projects/{id}")
     @RequirePerm("migration:project:edit")
     public Result<Object> deleteProject(@PathVariable long id) {
+        TtlCache.evict("mig");
         db.update("DELETE FROM mig_diff WHERE run_id IN (SELECT id FROM mig_run WHERE project_id=?)", id);
         db.update("DELETE FROM mig_run WHERE project_id=?", id);
         db.update("DELETE FROM mig_check WHERE project_id=?", id);
@@ -159,6 +164,7 @@ public class MigrationController {
     @PostMapping("/projects/{id}/mappings")
     @RequirePerm("migration:project:edit")
     public Result<Object> saveMappings(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        TtlCache.evict("mig");
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> items = (List<Map<String, Object>>) b.get("mappings");
         if (items == null) throw new BizException(ErrorCode.PARAM_INVALID, "mappings 不能为空");
@@ -170,6 +176,7 @@ public class MigrationController {
     @PostMapping("/projects/{id}/checks")
     @RequirePerm("migration:project:edit")
     public Result<Object> saveChecks(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        TtlCache.evict("mig");
         requireProject(id);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> items = (List<Map<String, Object>>) b.get("checks");
@@ -206,12 +213,14 @@ public class MigrationController {
     @PostMapping("/projects/{id}/create-target")
     @RequirePerm("migration:project:edit")
     public Result<Object> createTarget(@PathVariable long id) {
+        TtlCache.evict("mig");
         return Result.ok(service.createTargetTable(id));
     }
 
     @PostMapping("/projects/{id}/run")
     @RequirePerm("migration:project:exec")
     public Result<Object> run(@PathVariable long id, @RequestBody(required = false) Map<String, Object> b) {
+        TtlCache.evict("mig");
         boolean replace = b == null || Req.toInt(b.getOrDefault("replace", 1), 1) == 1;
         int batchSize = b == null ? 0 : Req.toInt(b.get("batchSize"), 0);
         return Result.ok(service.run(id, replace, batchSize, AuthContext.username()));
@@ -221,6 +230,7 @@ public class MigrationController {
     @PostMapping("/runs/{runId}/rollback")
     @RequirePerm("migration:project:exec")
     public Result<Object> rollback(@PathVariable long runId) {
+        TtlCache.evict("mig");
         return Result.ok(service.rollback(runId));
     }
 

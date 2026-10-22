@@ -6,6 +6,7 @@ import com.dgp.common.ErrorCode;
 import com.dgp.common.M;
 import com.dgp.common.Req;
 import com.dgp.common.Result;
+import com.dgp.common.TtlCache;
 import com.dgp.security.AuthContext;
 import com.dgp.security.RequirePerm;
 import org.springframework.web.bind.annotation.*;
@@ -36,7 +37,9 @@ public class StreamQualityController {
     @GetMapping("/overview")
     @RequirePerm("quality:stream:view")
     public Result<Object> overview() {
-        return Result.ok(service.metrics());
+        // 概览是重聚合（多条统计 + 24h 趋势），5s TTL 缓存；写操作会立即失效
+        Object cached = TtlCache.get("stream:overview:" + AuthContext.tenantId(), 5_000, service::metrics);
+        return Result.ok(cached);
     }
 
     @GetMapping("/health")
@@ -80,6 +83,7 @@ public class StreamQualityController {
     @PostMapping("/sources")
     @RequirePerm("quality:stream:create")
     public Result<Object> createSource(@RequestBody Map<String, Object> b) {
+        TtlCache.evict("stream");
         String code = Req.str(b.get("code"));
         if (Req.blank(code)) throw new BizException(ErrorCode.PARAM_INVALID, "编码不能为空");
         if (db.one("SELECT id FROM qa_stream_source WHERE code=?", code) != null) {
@@ -102,6 +106,7 @@ public class StreamQualityController {
     @PutMapping("/sources/{id}")
     @RequirePerm("quality:stream:edit")
     public Result<Object> updateSource(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        TtlCache.evict("stream");
         Map<String, Object> before = db.one("SELECT * FROM qa_stream_source WHERE id=?", id);
         if (before == null) throw new BizException(ErrorCode.NOT_FOUND, "流源不存在");
         Object table = pick(b, before, "tableName");
@@ -119,6 +124,7 @@ public class StreamQualityController {
     @DeleteMapping("/sources/{id}")
     @RequirePerm("quality:stream:edit")
     public Result<Object> deleteSource(@PathVariable long id) {
+        TtlCache.evict("stream");
         db.update("DELETE FROM qa_stream_result WHERE source_id=?", id);
         db.update("DELETE FROM qa_stream_alert WHERE source_id=?", id);
         db.update("DELETE FROM qa_stream_rule WHERE source_id=?", id);
@@ -130,6 +136,7 @@ public class StreamQualityController {
     @PostMapping("/sources/{id}/run")
     @RequirePerm("quality:stream:exec")
     public Result<Object> runSource(@PathVariable long id) {
+        TtlCache.evict("stream");
         return Result.ok(service.runSource(id, "MANUAL"));
     }
 
@@ -137,6 +144,7 @@ public class StreamQualityController {
     @PostMapping("/sources/{id}/reset-watermark")
     @RequirePerm("quality:stream:exec")
     public Result<Object> resetWatermark(@PathVariable long id) {
+        TtlCache.evict("stream");
         if (db.one("SELECT id FROM qa_stream_source WHERE id=?", id) == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "流源不存在");
         }
@@ -146,6 +154,7 @@ public class StreamQualityController {
     @PostMapping("/sources/run-all")
     @RequirePerm("quality:stream:exec")
     public Result<Object> runAll() {
+        TtlCache.evict("stream");
         return Result.ok(service.runAll());
     }
 
@@ -175,6 +184,7 @@ public class StreamQualityController {
     @PostMapping("/rules")
     @RequirePerm("quality:stream:create")
     public Result<Object> createRule(@RequestBody Map<String, Object> b) {
+        TtlCache.evict("stream");
         long sourceId = Db.longVal(b.get("sourceId"), 0L);
         if (db.one("SELECT id FROM qa_stream_source WHERE id=?", sourceId) == null) {
             throw new BizException(ErrorCode.PARAM_INVALID, "流源不存在：" + sourceId);
@@ -200,6 +210,7 @@ public class StreamQualityController {
     @PutMapping("/rules/{id}")
     @RequirePerm("quality:stream:edit")
     public Result<Object> updateRule(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        TtlCache.evict("stream");
         Map<String, Object> before = db.one("SELECT * FROM qa_stream_rule WHERE id=?", id);
         if (before == null) throw new BizException(ErrorCode.NOT_FOUND, "规则不存在");
         if (b.get("expression") != null) StreamQualityService.assertSafePredicate(Req.str(b.get("expression")));
@@ -214,6 +225,7 @@ public class StreamQualityController {
     @DeleteMapping("/rules/{id}")
     @RequirePerm("quality:stream:edit")
     public Result<Object> deleteRule(@PathVariable long id) {
+        TtlCache.evict("stream");
         db.update("DELETE FROM qa_stream_result WHERE rule_id=?", id);
         db.update("DELETE FROM qa_stream_alert WHERE rule_id=?", id);
         db.update("DELETE FROM qa_stream_rule WHERE id=?", id);
@@ -231,6 +243,7 @@ public class StreamQualityController {
     @PutMapping("/sources/{id}/push-config")
     @RequirePerm("quality:stream:edit")
     public Result<Object> savePushConfig(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        TtlCache.evict("stream");
         // fieldMapping 允许传 JSON 对象或 JSON 字符串，统一规范化后落库
         Object fm = b.get("fieldMapping");
         String fieldMapping = fm instanceof String ? (String) fm : (fm == null ? null : com.dgp.common.JsonUtil.toJson(fm));
@@ -241,6 +254,7 @@ public class StreamQualityController {
     @PostMapping("/push/{code}")
     @RequirePerm("quality:stream:exec")
     public Result<Object> push(@PathVariable String code, @RequestBody Map<String, Object> payload) {
+        TtlCache.evict("stream");
         return Result.ok(service.pushEvent(code, payload));
     }
 
@@ -266,6 +280,7 @@ public class StreamQualityController {
     @PostMapping("/alerts/{id}/handle")
     @RequirePerm("quality:stream:handle")
     public Result<Object> handleAlert(@PathVariable long id) {
+        TtlCache.evict("stream");
         return Result.ok(service.handleAlert(id));
     }
 
