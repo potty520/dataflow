@@ -75,5 +75,17 @@ $k1 = (D (C "GET" "/api/v1/overview/dashboard" (Auth $ana) $null)).kpi
 Check "分析师概览闭环率非空" (($null -ne $k1.closedRate) -and ("$($k1.closedRate)" -ne "")) ("closedRate=" + $k1.closedRate)
 
 Write-Output ""
+Write-Output "=== 迁移列表接口（TenantGuard 子查询 WHERE 回归） ==="
+$cons = Login "consultant"
+$ma = C "GET" "/api/v1/migration/agg" $H1 $null
+Check "tenant1 用户访问聚合汇总列表 -> 200" ($ma.s -eq 200) ("HTTP " + $ma.s)
+$mc = C "GET" "/api/v1/migration/agg" (Auth $cons) $null
+Check "顾问访问聚合汇总列表 -> 200" ($mc.s -eq 200) ("HTTP " + $mc.s)
+$ft1 = C "GET" "/api/v1/migration/files/tasks" $H1 $null
+Check "tenant1 用户访问文件迁移列表 -> 200" ($ft1.s -eq 200) ("HTTP " + $ft1.s)
+$ft2 = C "GET" "/api/v1/migration/files/tasks?keyword=客户" $H1 $null
+Check "文件迁移列表带 keyword -> 200" ($ft2.s -eq 200) ("HTTP " + $ft2.s)
+
+Write-Output ""
 Write-Output ("===== 租户隔离 + 会话安全 汇总：PASS=" + $script:pass + "  FAIL=" + $script:fail + " =====")
 if ($script:fail -gt 0) { Write-Output ("失败项：" + ($script:fails -join "; ")) }

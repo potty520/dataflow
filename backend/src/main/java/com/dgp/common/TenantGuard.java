@@ -142,18 +142,49 @@ public final class TenantGuard {
         return null;
     }
 
-    /** 把条件追加到 WHERE 子句末尾（或新增 WHERE），不影响 GROUP BY/ORDER BY/LIMIT 等尾部子句。 */
+    /** 把条件追加到外层 WHERE 末尾（或新增 WHERE），不影响 GROUP BY/ORDER BY/LIMIT 等尾部子句。 */
     private static String appendCondition(String sql, String cond) {
         String lower = sql.toLowerCase(Locale.ROOT);
         int tail = sql.length();
         for (String kw : new String[]{" group by ", " order by ", " limit ", " having ", " offset ", " for update"}) {
-            int i = lower.indexOf(kw);
+            int i = outerKeyword(lower, kw);
             if (i >= 0 && i < tail) tail = i;
         }
-        int where = lower.indexOf(" where ");
+        int where = outerKeyword(lower, " where ");
         if (where >= 0 && where < tail) {
             return sql.substring(0, tail).trim() + " AND " + cond + " " + sql.substring(tail).trim();
         }
         return sql.substring(0, tail).trim() + " WHERE " + cond + " " + sql.substring(tail).trim();
+    }
+
+    /**
+     * 查找括号深度为 0（外层）的关键字位置，跳过引号与子查询。
+     * 修复点：原实现用 indexOf 会命中 SELECT 列表子查询里的 WHERE，
+     * 导致条件被拼到 FROM 之后（如 mig_agg 列表：子查询 WHERE r.agg_id=a.id），生成非法 SQL。
+     */
+    private static int outerKeyword(String s, String kw) {
+        int depth = 0;
+        char quote = 0;
+        for (int i = 0; i + kw.length() <= s.length(); i++) {
+            char c = s.charAt(i);
+            if (quote != 0) {
+                if (c == quote && (i == 0 || s.charAt(i - 1) != '\\')) quote = 0;
+                continue;
+            }
+            if (c == '\'' || c == '"') {
+                quote = c;
+                continue;
+            }
+            if (c == '(') {
+                depth++;
+                continue;
+            }
+            if (c == ')') {
+                depth--;
+                continue;
+            }
+            if (depth == 0 && s.startsWith(kw, i)) return i;
+        }
+        return -1;
     }
 }
