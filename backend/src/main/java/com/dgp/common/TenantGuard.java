@@ -94,7 +94,8 @@ public final class TenantGuard {
             try {
                 java.util.List<java.util.Map<String, Object>> rows = holder == null ? null
                         : holder.query("SELECT table_name AS t FROM information_schema.columns "
-                        + "WHERE table_schema=DATABASE() AND column_name='tenant_id'");
+                        + "WHERE LOWER(column_name)='tenant_id' "
+                        + "AND LOWER(table_schema) NOT IN ('information_schema','pg_catalog','sys')");
                 Set<String> set = ConcurrentHashMap.newKeySet();
                 if (rows != null) {
                     for (java.util.Map<String, Object> r : rows) {

@@ -12,7 +12,7 @@ function Call($method, $path, $headers, $body) {
         return [pscustomobject]@{ Status = -1; Body = $_.Exception.Message; Head = @{} }
     }
 }
-function J($r) { try { return ($r.Body | ConvertFrom-Json) } catch { return $null } }
+function J($r) { if ($null -eq $r -or $null -eq $r.Body) { return $null }; try { return ($r.Body | ConvertFrom-Json) } catch { return $null } }
 function D($r) { $j = J $r; if ($j) { return $j.data } else { return $null } }
 function Check($name, $cond, $detail) {
     if ($cond) { $script:pass++; Write-Output ("  PASS  " + $name + $(if ($detail) { "  [" + $detail + "]" } else { "" })) }

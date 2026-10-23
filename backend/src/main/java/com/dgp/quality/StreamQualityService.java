@@ -415,6 +415,14 @@ public class StreamQualityService {
         if (pkCol == null || pkCol.isBlank()) {
             throw new BizException(ErrorCode.PARAM_INVALID, "推送接入要求流源配置主键字段（pk_col），用于事件级规则判定");
         }
+        Object pkKey = mapping.get(pkCol);
+        if (pkKey == null || String.valueOf(pkKey).isBlank()) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "推送字段映射缺少主键字段：" + pkCol);
+        }
+        Object pkVal = payload.get(String.valueOf(pkKey));
+        if (pkVal == null) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "推送报文缺少主键字段：" + pkCol);
+        }
         List<String> cols = new ArrayList<>();
         List<Object> vals = new ArrayList<>();
         for (Map.Entry<String, Object> e : mapping.entrySet()) {
@@ -424,11 +432,6 @@ public class StreamQualityService {
         String insert = "INSERT INTO " + table + " (" + String.join(",", cols) + ") VALUES ("
                 + String.join(",", Collections.nCopies(cols.size(), "?")) + ")";
         db.update(insert, vals.toArray());
-
-        Object pkVal = payload.get(String.valueOf(mapping.getOrDefault(pkCol, pkCol)));
-        if (pkVal == null) {
-            throw new BizException(ErrorCode.PARAM_INVALID, "推送报文缺少主键字段：" + pkCol);
-        }
         String eventTime = payload.get("eventTime") == null
                 ? TS.format(LocalDateTime.now()) : String.valueOf(payload.get("eventTime"));
         List<Map<String, Object>> rules = db.list(

@@ -8,7 +8,19 @@ function C($m, $p, $h, $b) {
     try { $r = Invoke-WebRequest @x; return @{ s = [int]$r.StatusCode; j = ($r.Content | ConvertFrom-Json) } }
     catch {
         $resp = $_.Exception.Response
-        if ($resp) { $sr = New-Object System.IO.StreamReader($resp.GetResponseStream(), [Text.Encoding]::UTF8); $txt = $sr.ReadToEnd(); try { return @{ s = [int]$resp.StatusCode; j = ($txt | ConvertFrom-Json) } } catch { return @{ s = [int]$resp.StatusCode; j = $null } } }
+        if ($resp) {
+            $status = -1
+            try { $status = [int]$resp.StatusCode } catch { try { $status = [int]$resp.StatusCode.value__ } catch { } }
+            $txt = $_.ErrorDetails.Message
+            if (-not $txt -and $resp.Content) {
+                try { $txt = $resp.Content.ReadAsStringAsync().GetAwaiter().GetResult() } catch { }
+            }
+            if (-not $txt -and $resp.GetResponseStream) {
+                try { $sr = New-Object System.IO.StreamReader($resp.GetResponseStream(), [Text.Encoding]::UTF8); $txt = $sr.ReadToEnd() } catch { }
+            }
+            if ($txt) { try { return @{ s = $status; j = ($txt | ConvertFrom-Json) } } catch { } }
+            return @{ s = $status; j = $null }
+        }
         return @{ s = -1; j = $null }
     }
 }

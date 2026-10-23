@@ -358,14 +358,25 @@ public class AggregationService {
         for (Map<String, Object> m : metrics) cols.add(String.valueOf(m.get("alias")));
         List<String> idcols = new ArrayList<>();
         for (String c : cols) idcols.add(Db.identifier(c));
-        StringBuilder sql = new StringBuilder("INSERT INTO ").append(Db.identifier(String.valueOf(a.get("targetTable"))))
-                .append(" (").append(String.join(",", idcols)).append(") ").append(viewSql(a));
+        String targetTable = Db.identifier(String.valueOf(a.get("targetTable")));
+        StringBuilder sql = new StringBuilder();
+        if ("H2".equals(dialect)) {
+            List<String> keyCols = new ArrayList<>();
+            for (String d : dims) keyCols.add(Db.identifier(d));
+            sql.append("MERGE INTO ").append(targetTable).append(" (").append(String.join(",", idcols))
+                    .append(") KEY (").append(String.join(",", keyCols)).append(") ").append(viewSql(a));
+        } else {
+            sql.append("INSERT INTO ").append(targetTable).append(" (").append(String.join(",", idcols))
+                    .append(") ").append(viewSql(a));
+        }
         List<String> sets = new ArrayList<>();
         for (Map<String, Object> m : metrics) {
             String alias = Db.identifier(String.valueOf(m.get("alias")));
             sets.add("POSTGRESQL".equals(dialect) ? alias + "=EXCLUDED." + alias : alias + "=VALUES(" + alias + ")");
         }
-        if ("POSTGRESQL".equals(dialect)) {
+        if ("H2".equals(dialect)) {
+            // H2 使用 MERGE ... KEY，无需追加 ON DUPLICATE/ON CONFLICT 子句。
+        } else if ("POSTGRESQL".equals(dialect)) {
             List<String> dcols = new ArrayList<>();
             for (String d : dims) dcols.add(Db.identifier(d));
             sql.append(" ON CONFLICT (").append(String.join(",", dcols)).append(") DO UPDATE SET ")
@@ -436,6 +447,14 @@ public class AggregationService {
         if (dsId > 0) {
             String t = Db.str(db.scalar("SELECT db_type FROM mig_datasource WHERE id=?", dsId));
             if (t != null && !t.isBlank()) return t.toUpperCase(Locale.ROOT);
+        }
+        try (Connection c = db.jdbc().getDataSource().getConnection()) {
+            String p = c.getMetaData().getDatabaseProductName().toUpperCase(Locale.ROOT);
+            if (p.contains("H2")) return "H2";
+            if (p.contains("POSTGRES")) return "POSTGRESQL";
+            if (p.contains("MYSQL")) return "MYSQL";
+        } catch (Exception e) {
+            log.debug("无法识别目标数据库方言，按 MySQL 处理: {}", e.getMessage());
         }
         return "MYSQL";
     }

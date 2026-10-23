@@ -65,7 +65,7 @@ Check "新用户可用初始口令登录" ([bool]$utok) ""
 Check "自助改密（错误原口令）-> 400" ((Call "PUT" "/api/v1/auth/password" (AuthH $utok) '{"oldPassword":"wrong","newPassword":"Probe5678"}').Status -eq 400) ""
 Check "自助改密（正确原口令）-> 200" ((Call "PUT" "/api/v1/auth/password" (AuthH $utok) '{"oldPassword":"Probe1234","newPassword":"Probe5678"}').Status -eq 200) ""
 Check "新口令可登录" ([bool](Login $uname "Probe5678")) ""
-Check "弱口令被拒绝 -> 400" ((Call "PUT" "/api/v1/auth/password" (H (Login $uname "Probe5678")) '{"oldPassword":"Probe5678","newPassword":"123"}').Status -eq 400) ""
+Check "弱口令被拒绝 -> 400" ((Call "PUT" "/api/v1/auth/password" (AuthH (Login $uname "Probe5678")) '{"oldPassword":"Probe5678","newPassword":"123"}').Status -eq 400) ""
 Check "删除探针用户 -> 200" ((Call "DELETE" "/api/v1/auth/users/$newUid" $HA $null).Status -eq 200) ""
 
 # 数据权限

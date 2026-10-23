@@ -91,8 +91,25 @@ public class Db {
             }
             return ps;
         }, kh);
-        Number key = kh.getKey();
-        return key == null ? 0L : key.longValue();
+        // H2 returns a String key for VARCHAR primary keys (e.g. sys_session.sid).
+        // Callers only consume the ID of numeric auto-generated keys, so treat
+        // non-numeric generated keys as "no numeric id" instead of failing the insert.
+        try {
+            Number key = kh.getKey();
+            return key == null ? 0L : key.longValue();
+        } catch (RuntimeException ex) {
+            try {
+                Map<String, Object> keys = kh.getKeys();
+                if (keys != null) {
+                    for (Object value : keys.values()) {
+                        if (value instanceof Number number) return number.longValue();
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // Composite/non-numeric keys are valid for inserts that do not need the id.
+            }
+            return 0L;
+        }
     }
 
     public long insertReturningId(String sql, Object... args) {

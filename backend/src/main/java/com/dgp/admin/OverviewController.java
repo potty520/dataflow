@@ -3,6 +3,7 @@ package com.dgp.admin;
 import com.dgp.common.Db;
 import com.dgp.common.M;
 import com.dgp.common.Result;
+import com.dgp.security.AuthContext;
 import com.dgp.security.RequirePerm;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,13 +26,19 @@ public class OverviewController {
     @GetMapping("/dashboard")
     @RequirePerm("metadata:overview:view")
     public Result<Object> dashboard() {
+        String mdTableScope = tenantScope("t");
+        String apiScope = tenantScope("a");
+        String jobScope = tenantScope("j");
+        String taskScope = tenantScope("ct");
+        String dsScope = tenantScope("d");
         // 该接口一次要发 30 条聚合 SQL，是高并发下的首要瓶颈；看板允许 15s 级延迟，故整体缓存。
         // 任何写操作都不影响"看板数据必须分秒不差"的验收口径：关键写接口会 evict("overview")。
         Object cached = com.dgp.common.TtlCache.get("overview:dashboard:" + com.dgp.security.AuthContext.tenantId(), 15_000,
                 () -> M.of(
                         "kpi", M.of(
                                 "tableCount", db.count("SELECT COUNT(*) FROM md_table"),
-                                "columnCount", db.count("SELECT COUNT(*) FROM md_column"),
+                                "columnCount", db.count("SELECT COUNT(*) FROM md_column c "
+                                        + "WHERE c.table_id IN (SELECT id FROM md_table t WHERE " + mdTableScope + ")"),
                                 "totalRows", db.scalar("SELECT COALESCE(SUM(row_count),0) FROM md_table"),
                                 "datasourceCount", db.count("SELECT COUNT(*) FROM md_datasource"),
                                 "qualityScore", db.scalar("SELECT ROUND(AVG(quality_score),2) FROM md_table WHERE quality_score>0"),
@@ -41,7 +48,8 @@ public class OverviewController {
                                 // 闭环率由看板自身计算（不再依赖问题模块权限，避免分析师看到空白）
                                 "closedRate", db.scalar("SELECT COALESCE(ROUND(SUM(CASE WHEN status='CLOSED' THEN 1 ELSE 0 END)*100.0/NULLIF(COUNT(*),0),1),0) FROM qa_issue"),
                                 "apiCount", db.count("SELECT COUNT(*) FROM svc_api WHERE status='PUBLISHED'"),
-                                "callCount", db.count("SELECT COUNT(*) FROM svc_call_log"),
+                                "callCount", db.count("SELECT COUNT(*) FROM svc_call_log l "
+                                        + "WHERE l.api_id IN (SELECT id FROM svc_api a WHERE " + apiScope + ")"),
                                 "jobCount", db.count("SELECT COUNT(*) FROM int_job WHERE job_type<>'WORKFLOW'"),
                                 "sensitiveColumns", db.count("SELECT COUNT(*) FROM sec_sensitive_result"),
                                 "assetValue", db.scalar("SELECT ROUND(COALESCE(SUM(value_score),0),2) FROM ast_catalog"),
@@ -49,9 +57,10 @@ public class OverviewController {
                         "qualityTrend", db.list("SELECT stat_date, ROUND(AVG(total_score),2) AS score FROM qa_score "
                                 + "WHERE stat_date>=? GROUP BY stat_date ORDER BY stat_date", LocalDate.now().minusDays(14)),
                         // 修正：原实现读 svc_call_stat（只有种子数据写入），真实调用趋势永远不变
-                        "callTrend", db.list("SELECT CAST(call_time AS DATE) AS stat_date, COUNT(*) AS calls, "
-                                + "SUM(CASE WHEN status_code>=400 THEN 1 ELSE 0 END) AS fails FROM svc_call_log "
-                                + "WHERE call_time>=? GROUP BY CAST(call_time AS DATE) ORDER BY CAST(call_time AS DATE)",
+                        "callTrend", db.list("SELECT CAST(l.call_time AS DATE) AS stat_date, COUNT(*) AS calls, "
+                                + "SUM(CASE WHEN l.status_code>=400 THEN 1 ELSE 0 END) AS fails FROM svc_call_log l "
+                                + "WHERE l.call_time>=? AND l.api_id IN (SELECT id FROM svc_api a WHERE " + apiScope + ") "
+                                + "GROUP BY CAST(l.call_time AS DATE) ORDER BY CAST(l.call_time AS DATE)",
                                 LocalDate.now().minusDays(14).atStartOfDay()),
                         "byDimension", db.list("SELECT dimension, ROUND(AVG(last_pass_rate),2) AS pass_rate, COUNT(*) AS rules "
                                 + "FROM qa_rule GROUP BY dimension"),
@@ -60,18 +69,33 @@ public class OverviewController {
                         "issueByStatus", db.list("SELECT status, COUNT(*) AS cnt FROM qa_issue GROUP BY status"),
                         "recentIssues", db.list("SELECT id,code,rule_name,table_name,severity,status,assignee,discover_time "
                                 + "FROM qa_issue ORDER BY id DESC LIMIT 6"),
-                        "recentJobs", db.list("SELECT job_name,status,start_time,duration_ms,rows_written FROM int_job_instance ORDER BY id DESC LIMIT 6"),
+                        "recentJobs", db.list("SELECT i.job_name,i.status,i.start_time,i.duration_ms,i.rows_written "
+                                + "FROM int_job_instance i WHERE i.job_id IN (SELECT id FROM int_job j WHERE " + jobScope + ") "
+                                + "ORDER BY i.id DESC LIMIT 6"),
                         "recentAlerts", db.list("SELECT id,title,severity,status,alert_time FROM sec_alert ORDER BY id DESC LIMIT 4"),
                         "alerts", M.of(
                                 "pendingApprovals", db.count("SELECT COUNT(*) FROM mdl_publish_flow WHERE status='PENDING'"),
                                 "pendingPolicies", db.count("SELECT COUNT(*) FROM sec_mask_policy WHERE status='PENDING'"),
                                 "overdueIssues", db.count("SELECT COUNT(*) FROM qa_issue WHERE status='OVERDUE'"),
-                                "failedJobs", db.count("SELECT COUNT(*) FROM int_job_instance WHERE status='FAILED'"),
+                                "failedJobs", db.count("SELECT COUNT(*) FROM int_job_instance i "
+                                        + "WHERE i.status='FAILED' AND i.job_id IN "
+                                        + "(SELECT id FROM int_job j WHERE " + jobScope + ")"),
                                 "openAlerts", db.count("SELECT COUNT(*) FROM sec_alert WHERE status='OPEN'")),
                         "industryContext", db.list("SELECT code,name FROM ind_industry"),
                         "collectHealth", M.of(
-                                "coverage", db.scalar("SELECT ROUND(COUNT(DISTINCT datasource_id)*100.0/(SELECT COUNT(*) FROM md_datasource),2) FROM md_collect_task"),
-                                "lastCollect", db.scalar("SELECT MAX(end_time) FROM md_collect_instance"))));
+                                "coverage", db.scalar("SELECT ROUND(COUNT(DISTINCT ct.datasource_id)*100.0/"
+                                        + "NULLIF((SELECT COUNT(*) FROM md_datasource d WHERE " + dsScope + "),0),2) "
+                                        + "FROM md_collect_task ct WHERE " + taskScope),
+                                "lastCollect", db.scalar("SELECT MAX(ci.end_time) FROM md_collect_instance ci "
+                                        + "WHERE ci.task_id IN (SELECT id FROM md_collect_task ct WHERE " + taskScope + ")"))));
         return Result.ok(cached);
+    }
+
+    /** 非平台管理员只统计本租户；平台管理员保留全租户视角。 */
+    private static String tenantScope(String alias) {
+        if (AuthContext.get() == null || "ROLE_GOV_ADMIN".equalsIgnoreCase(AuthContext.get().getRoleCode())) {
+            return "1=1";
+        }
+        return alias + ".tenant_id=" + AuthContext.tenantId();
     }
 }

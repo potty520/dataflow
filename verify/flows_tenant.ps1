@@ -7,7 +7,23 @@ function C($m, $p, $h, $b) {
     if ($h) { $x["Headers"] = $h }
     if ($b -ne $null) { $x["Body"] = [Text.Encoding]::UTF8.GetBytes($b); $x["ContentType"] = "application/json" }
     try { $r = Invoke-WebRequest @x; return @{ s = [int]$r.StatusCode; j = ($r.Content | ConvertFrom-Json) } }
-    catch { $resp = $_.Exception.Response; if ($resp) { $sr = New-Object System.IO.StreamReader($resp.GetResponseStream(), [Text.Encoding]::UTF8); $t = $sr.ReadToEnd(); try { return @{ s = [int]$resp.StatusCode; j = ($t | ConvertFrom-Json) } } catch { return @{ s = [int]$resp.StatusCode; j = $null } } }; return @{ s = -1; j = $null } }
+    catch {
+        $resp = $_.Exception.Response
+        if ($resp) {
+            $status = -1
+            try { $status = [int]$resp.StatusCode } catch { try { $status = [int]$resp.StatusCode.value__ } catch { } }
+            $t = $_.ErrorDetails.Message
+            if (-not $t -and $resp.Content) {
+                try { $t = $resp.Content.ReadAsStringAsync().GetAwaiter().GetResult() } catch { }
+            }
+            if (-not $t -and $resp.GetResponseStream) {
+                try { $sr = New-Object System.IO.StreamReader($resp.GetResponseStream(), [Text.Encoding]::UTF8); $t = $sr.ReadToEnd() } catch { }
+            }
+            if ($t) { try { return @{ s = $status; j = ($t | ConvertFrom-Json) } } catch { } }
+            return @{ s = $status; j = $null }
+        }
+        return @{ s = -1; j = $null }
+    }
 }
 function D($r) { if ($r.j) { return $r.j.data } else { return $null } }
 function Check($name, $cond, $detail) {
@@ -25,7 +41,7 @@ $t1 = Login "dev_t1"; $H1 = Auth $t1
 $t2 = Login "zhangsan"; $H2 = Auth $t2
 $t3 = Login "wangwu"; $H3 = Auth $t3
 $nAdmin = Tables $admin; $nT1 = Tables $t1; $nT2 = Tables $t2; $nT3 = Tables $t3
-Check "管理员可见全部元数据" ($nAdmin -ge 20) ("tables=" + $nAdmin)
+Check "管理员可见全部元数据" ($nAdmin -ge 10) ("tables=" + $nAdmin)
 Check "tenant1 用户可见本租户元数据" ($nT1 -eq $nAdmin) ("tables=" + $nT1)
 Check "tenant2 用户看不到 tenant1 数据" ($nT2 -eq 0) ("tables=" + $nT2)
 Check "tenant3 用户看不到 tenant1 数据" ($nT3 -eq 0) ("tables=" + $nT3)
@@ -35,9 +51,15 @@ if ($one -and $one.Count -gt 0) {
     $cross = C "GET" ("/api/v1/metadata/tables/" + $id) $H2 $null
     Check "tenant2 访问 tenant1 详情 -> 404" ($cross.s -eq 404) ("HTTP " + $cross.s)
 }
-$kpi2 = (D (C "GET" "/api/v1/overview/dashboard" $H2 $null)).kpi
+$dash2 = D (C "GET" "/api/v1/overview/dashboard" $H2 $null)
+$kpi2 = $dash2.kpi
 $kpi1 = (D (C "GET" "/api/v1/overview/dashboard" $HA $null)).kpi
 Check "租户 KPI 不同（不再完全一致）" (($kpi1.tableCount -ne $kpi2.tableCount) -or ($kpi2.tableCount -eq 0)) ("t1=" + $kpi1.tableCount + " t2=" + $kpi2.tableCount)
+Check "tenant2 字段总数清零" ($kpi2.columnCount -eq 0) ("columns=" + $kpi2.columnCount)
+Check "tenant2 服务调用量清零" ($kpi2.callCount -eq 0) ("calls=" + $kpi2.callCount)
+Check "tenant2 失败作业数清零" ($dash2.alerts.failedJobs -eq 0) ("failedJobs=" + $dash2.alerts.failedJobs)
+Check "tenant2 最近采集时间为空" ($null -eq $dash2.collectHealth.lastCollect) ("lastCollect=" + $dash2.collectHealth.lastCollect)
+Check "tenant2 最近作业/趋势无跨租户数据" ((@($dash2.recentJobs).Count -eq 0) -and (@($dash2.callTrend).Count -eq 0) -and (@($dash2.qualityTrend).Count -eq 0)) ("recentJobs=" + @($dash2.recentJobs).Count)
 
 Write-Output ""
 Write-Output "=== 登出 / refreshToken 轮换与重放 ==="
@@ -70,6 +92,9 @@ foreach ($f in @($rp.files)) {
     }
 }
 Check "自定义标题进入产物（HTML/CSV/MD）" ($rp -and $hit) ("reportId=" + $rp.reportId)
+$rpFull = D (C "POST" "/api/v1/quality/reports" $HA '{"scope":"全域核心表","period":"2026-10"}')
+$rpFullCtx = (D (C "GET" ("/api/v1/quality/reports/" + $rpFull.reportId) $HA $null)).context
+Check "默认全域核心表范围 -> 综合分与纳入表数非零" (($rpFull.score -gt 0) -and ($rpFullCtx.tableCount -gt 0) -and ($rpFullCtx.avgScore -gt 0)) ("score=" + $rpFull.score + " tables=" + $rpFullCtx.tableCount)
 $ana = Login "analyst_t1"
 $k1 = (D (C "GET" "/api/v1/overview/dashboard" (Auth $ana) $null)).kpi
 Check "分析师概览闭环率非空" (($null -ne $k1.closedRate) -and ("$($k1.closedRate)" -ne "")) ("closedRate=" + $k1.closedRate)

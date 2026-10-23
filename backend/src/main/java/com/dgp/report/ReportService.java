@@ -96,7 +96,7 @@ public class ReportService {
     }
 
     private List<Map<String, Object>> loadTables(String scope) {
-        if (scope == null || scope.isBlank()) {
+        if (scope == null || scope.isBlank() || "全域核心表".equals(scope.trim())) {
             return db.list("SELECT name,cn_name,quality_score,row_count,owner,sensitive_level FROM md_table "
                     + "WHERE quality_score>0 ORDER BY quality_score ASC");
         }

@@ -270,7 +270,7 @@ public class StandardController {
         List<Map<String, Object>> byTable = db.list(
                 "SELECT t.name AS table_name, t.cn_name, COUNT(c.id) AS total_cols, "
                         + "SUM(CASE WHEN c.std_code IS NOT NULL THEN 1 ELSE 0 END) AS mapped_cols, "
-                        + "ROUND(SUM(CASE WHEN c.std_code IS NOT NULL THEN 1 ELSE 0 END)*100.0/COUNT(c.id),2) AS rate "
+                        + "CASE WHEN COUNT(c.id)=0 THEN 0 ELSE ROUND(SUM(CASE WHEN c.std_code IS NOT NULL THEN 1 ELSE 0 END)*100.0/COUNT(c.id),2) END AS rate "
                         + "FROM md_table t LEFT JOIN md_column c ON c.table_id=t.id GROUP BY t.name, t.cn_name ORDER BY rate ASC");
         List<Map<String, Object>> history = db.list("SELECT * FROM std_compliance_check ORDER BY id DESC LIMIT 10");
         long total = db.count("SELECT COUNT(*) FROM md_column");

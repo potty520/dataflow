@@ -109,6 +109,9 @@ Check "TopN 接口 -> 200" ((Call "GET" "/api/v1/service/metrics/topn?limit=5" $
 Check "黑名单新增 -> 200" ((Call "POST" "/api/v1/service/blacklist" $HA '{"ip":"10.0.0.99","reason":"验收"}').Status -eq 200) ""
 Check "黑名单列表 -> 200" ((Call "GET" "/api/v1/service/blacklist" $HA $null).Status -eq 200) ""
 
+$cs = D (Call "GET" "/api/v1/standard/compliance/summary" $HA $null)
+Check "标准落地汇总 -> 200 且空表不触发除零" (($null -ne $cs.overallRate) -and (@($cs.byTable).Count -gt 0)) ("tables=" + @($cs.byTable).Count)
+
 # ================= K. 报告 =================
 Section "K. 报告生成与导出"
 $tg = Call "POST" "/api/v1/report/generate" $HA '{"title":"验收报告","formats":["html","csv","md"],"scope":"ods_customer"}'
