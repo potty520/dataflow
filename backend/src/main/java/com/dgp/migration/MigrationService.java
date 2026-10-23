@@ -534,7 +534,9 @@ public class MigrationService {
     public Map<String, Object> createTargetTable(long projectId) {
         Map<String, Object> p = requireProject(projectId);
         String target = Db.identifier(String.valueOf(p.get("targetTable")));
-        if (!columnsOf(target).isEmpty()) {
+        boolean isCross = CrossMigrationService.needsCross(p);
+        List<Map<String, Object>> exists = isCross ? cross.columnsOf(p, target, false) : columnsOf(target);
+        if (!exists.isEmpty()) {
             return M.of("created", false, "targetTable", target, "message", "目标表已存在，无需创建");
         }
         List<Map<String, Object>> mappings = db.list(
@@ -542,11 +544,19 @@ public class MigrationService {
         if (mappings.isEmpty()) throw new BizException(ErrorCode.PARAM_INVALID, "尚未配置字段映射");
         String ddl = suggestDdl(target, mappings);
         try {
-            db.update(ddl);
+            if (isCross) {
+                // 跨库：DDL 在目标数据源执行（本地库建不出来）
+                try (java.sql.Connection tc = cross.targetConnection(p);
+                     java.sql.Statement st = tc.createStatement()) {
+                    st.execute(ddl);
+                }
+            } else {
+                db.update(ddl);
+            }
         } catch (Exception e) {
             throw new BizException(ErrorCode.SQL_INVALID, "建表失败：" + e.getMessage());
         }
-        return M.of("created", true, "targetTable", target, "ddl", ddl);
+        return M.of("created", true, "targetTable", target, "ddl", ddl, "cross", isCross);
     }
 
     // ------------------------------------------------------------ 对账
@@ -556,7 +566,7 @@ public class MigrationService {
         long projectId = Db.longVal(run.get("projectId"), 0L);
         Map<String, Object> p = requireProject(projectId);
         if (CrossMigrationService.needsCross(p)) {
-            return cross.rollback(run);
+            return cross.reconcile(run);
         }
         String source = Db.identifier(String.valueOf(p.get("sourceTable")));
         String target = Db.identifier(String.valueOf(p.get("targetTable")));

@@ -1,0 +1,20 @@
+fix(migration): 跨库建表/对账修正 + 脱敏策略删除 + 部署密钥复用
+
+在“远端服务器(103.85.25.169) ↔ 本地服务器(192.168.1.14)”双向迁移实测中发现并修复：
+
+1) 跨库 create-target 只在本库执行 DDL → 改为在目标数据源连接执行
+   （原先远端目标表建不出来，执行报 Table doesn't exist）
+2) 跨库 reconcile 误调用 rollback → 新增 CrossMigrationService.reconcile
+   源/目标各用各自连接做 ROW_COUNT/PK_DUP/NULL_RATE/SUM 对账并写 mig_diff
+3) 保存对账项 NPE：tolerance 缺省时 Db.num 返回 null 被拆箱
+4) 新增 DELETE /security/mask/policies/{id}（管理员/安全管理员），
+   flows_ext 用例结束后删除自建策略，避免多次运行耗尽 ods_customer 字段
+5) lan_deploy.py 重复部署时复用已有 DGP_MASK_KEY/DGP_JWT_SECRET，
+   避免密钥轮换导致已加密的远程数据源口令、ENCRYPT 脱敏策略无法解密
+
+实测结果：
+- 远端→本地：ods_customer 6000 行，7 条映射（含 EXPR 手机号脱敏/DEFAULT 城市/CONST 来源标记），
+  对账 ROW_COUNT/PK_DUP/NULL_RATE 全 PASS
+- 本地→远端：ods_order 24000 行，远端自动建表 mig_local_order，
+  对账 ROW_COUNT/PK_DUP/SUM 全 PASS（远端落库 24000 行，mig_source=LOCAL_192）
+- 全量回归 378 项断言通过（73+70+70+81+55+29），接口 321 个

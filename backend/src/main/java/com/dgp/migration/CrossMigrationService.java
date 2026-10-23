@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -256,7 +257,124 @@ public class CrossMigrationService {
         return out;
     }
 
-    // ------------------------------------------------------------ 内部
+
+    // ------------------------------------------------------------ 跨库对账
+    /** 跨库对账：源侧统计走源连接，目标侧统计走目标连接，结果写 mig_diff（本库）。 */
+    public Map<String, Object> reconcile(Map<String, Object> run) {
+        long runId = Db.longVal(run.get("id"), 0L);
+        long projectId = Db.longVal(run.get("projectId"), 0L);
+        Map<String, Object> p = db.one("SELECT * FROM mig_project WHERE id=?", projectId);
+        if (p == null) throw new BizException(ErrorCode.NOT_FOUND, "迁移项目不存在");
+        String source = Db.identifier(String.valueOf(p.get("sourceTable")));
+        String target = Db.identifier(String.valueOf(p.get("targetTable")));
+        List<Map<String, Object>> checks = db.list("SELECT * FROM mig_check WHERE project_id=? ORDER BY id", projectId);
+        if (checks.isEmpty()) {
+            checks = List.of(M.of("checkType", "ROW_COUNT"), M.of("checkType", "PK_DUP"));
+        }
+        db.update("DELETE FROM mig_diff WHERE run_id=?", runId);
+        List<Map<String, Object>> out = new ArrayList<>();
+        int failed = 0;
+        try (Connection sc = sourceConnection(p); Connection tc = targetConnection(p)) {
+            for (Map<String, Object> c : checks) {
+                String type = String.valueOf(c.get("checkType")).toUpperCase(Locale.ROOT);
+                String col = Db.str(c.get("columnName"));
+                Double tolObj = Db.num(c.get("tolerance"));
+                double tol = tolObj == null ? 0 : tolObj;
+                String expected = "";
+                String actual = "";
+                String diff = "";
+                String status = "PASS";
+                String detail = "";
+                try {
+                    switch (type) {
+                        case "ROW_COUNT" -> {
+                            long s = count(sc, "SELECT COUNT(*) FROM " + source);
+                            long t = count(tc, "SELECT COUNT(*) FROM " + target);
+                            expected = String.valueOf(s);
+                            actual = String.valueOf(t);
+                            diff = String.valueOf(t - s);
+                            if (s == 0) status = t == 0 ? "PASS" : "FAIL";
+                            else if (Math.abs(t - s) * 1.0 / s > tol) status = "FAIL";
+                            detail = "源表 " + s + " 行 / 目标表 " + t + " 行";
+                        }
+                        case "PK_DUP" -> {
+                            String key = col == null || col.isBlank() ? null : Db.identifier(col);
+                            if (key == null) {
+                                expected = "0";
+                                actual = "0";
+                                detail = "未指定主键字段，跳过";
+                            } else {
+                                long dup = count(tc, "SELECT COUNT(*)-COUNT(DISTINCT " + key + ") FROM " + target);
+                                expected = "0";
+                                actual = String.valueOf(dup);
+                                diff = String.valueOf(dup);
+                                status = dup == 0 ? "PASS" : "FAIL";
+                                detail = "目标字段 " + key + " 重复行数 " + dup;
+                            }
+                        }
+                        case "NULL_RATE" -> {
+                            String cid = Db.identifier(col);
+                            Double sRate = queryNum(sc, "SELECT ROUND(SUM(CASE WHEN " + cid + " IS NULL THEN 1 ELSE 0 END)*100.0"
+                                    + "/NULLIF(COUNT(*),0),2) FROM " + source);
+                            Double tRate = queryNum(tc, "SELECT ROUND(SUM(CASE WHEN " + cid + " IS NULL THEN 1 ELSE 0 END)*100.0"
+                                    + "/NULLIF(COUNT(*),0),2) FROM " + target);
+                            expected = String.valueOf(sRate == null ? 0 : sRate);
+                            actual = String.valueOf(tRate == null ? 0 : tRate);
+                            double d = (tRate == null ? 0 : tRate) - (sRate == null ? 0 : sRate);
+                            diff = String.valueOf(Math.round(d * 100) / 100.0);
+                            status = Math.abs(d) <= tol * 100 ? "PASS" : "FAIL";
+                            detail = "源空值率 " + expected + "% / 目标空值率 " + actual + "%";
+                        }
+                        case "SUM" -> {
+                            String cid = Db.identifier(col);
+                            Double s = queryNum(sc, "SELECT COALESCE(SUM(" + cid + "),0) FROM " + source);
+                            Double t = queryNum(tc, "SELECT COALESCE(SUM(" + cid + "),0) FROM " + target);
+                            expected = String.valueOf(s == null ? 0 : s);
+                            actual = String.valueOf(t == null ? 0 : t);
+                            double d = (t == null ? 0 : t) - (s == null ? 0 : s);
+                            double base = Math.max(Math.abs(s == null ? 0 : s), 1e-9);
+                            diff = String.valueOf(d);
+                            status = Math.abs(d) / base <= tol ? "PASS" : "FAIL";
+                            detail = "源合计 " + expected + " / 目标合计 " + actual;
+                        }
+                        default -> detail = "不支持的检查类型：" + type;
+                    }
+                } catch (Exception e) {
+                    status = "FAIL";
+                    detail = "检查执行失败：" + e.getMessage();
+                }
+                if ("FAIL".equals(status)) failed++;
+                db.insert("INSERT INTO mig_diff(run_id,check_type,column_name,expected_val,actual_val,diff_val,status,detail) "
+                                + "VALUES(?,?,?,?,?,?,?,?)",
+                        runId, type, col, expected, actual, diff, status, detail);
+                out.add(M.of("checkType", type, "columnName", col, "expectedVal", expected, "actualVal", actual,
+                        "diff", diff, "status", status, "detail", detail));
+            }
+        } catch (Exception e) {
+            throw new BizException(ErrorCode.SQL_INVALID, "跨库对账失败：" + e.getMessage());
+        }
+        String overall = failed == 0 ? "PASS" : "FAIL";
+        db.update("UPDATE mig_run SET status=? WHERE id=?", "DONE".equals(String.valueOf(run.get("status"))) ? "DONE" : overall, runId);
+        return M.of("runId", runId, "checkCount", out.size(), "failedCount", failed,
+                "status", overall, "checks", out, "cross", true);
+    }
+
+    private long count(Connection c, String sql) throws Exception {
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            rs.next();
+            return rs.getLong(1);
+        }
+    }
+
+    private Double queryNum(Connection c, String sql) throws Exception {
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            if (!rs.next()) return null;
+            double v = rs.getDouble(1);
+            return rs.wasNull() ? null : v;
+        }
+    }
+
+    // ------------------------------------------------------------ 内部（复制）
     private long copy(Connection sc, Connection tc, String sql, Object[] params,
                       String target, List<String> targets, int batchSize) throws Exception {
         int n = targets.size();

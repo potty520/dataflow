@@ -169,6 +169,8 @@ Check "策略创建人自审批 -> 403" ((Call "POST" "/api/v1/security/mask/pol
 Check "安全管理员审批 -> ENABLED" (((D (Call "POST" "/api/v1/security/mask/policies/$polId/approve" $HS '{"result":"APPROVED"}')).status) -eq "ENABLED") ""
 Check "策略启停（disabling）-> DISABLED" (((D (Call "POST" "/api/v1/security/mask/policies/$polId/enable" $HS '{"enabled":false}')).status) -eq "DISABLED") ""
 Check "策略启停（enabling）-> ENABLED" (((D (Call "POST" "/api/v1/security/mask/policies/$polId/enable" $HS '{"enabled":true}')).status) -eq "ENABLED") ""
+# 清理本用例创建的策略，保证多次运行不耗尽 ods_customer 的可用字段
+if ($polId) { $null = Call "DELETE" "/api/v1/security/mask/policies/$polId" $HA $null }
 Check "脱敏预览（L3）-> 返回脱敏值" ((@((D (Call "POST" "/api/v1/security/mask/preview" $HS '{"tableName":"ods_customer","columnName":"phone","algorithm":"MASK"}')).samples)).Count -gt 0) ""
 Check "脱敏预览（未登记字段）-> 404" ((Call "POST" "/api/v1/security/mask/preview" $HS '{"tableName":"sys_user","columnName":"password"}').Status -eq 404) ""
 $apply = Call "POST" "/api/v1/security/access-applies" $HN '{"assetType":"TABLE","assetId":8,"assetName":"ods_customer","reason":"验收申请","durationDays":7}'

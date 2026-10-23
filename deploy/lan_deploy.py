@@ -95,8 +95,19 @@ SHOW DATABASES LIKE '{db}';
     l.script("jar_swap", "chown %s:%s {app}/dgp-boot.jar.new\nmv -f {app}/dgp-boot.jar.new {app}/dgp-boot.jar\nls -lh {app}/dgp-boot.jar\n".format(app=APP) % (USER, USER))
 
     print("=== C. 环境变量与 systemd unit ===")
+    # 重复部署必须复用已有密钥：否则 DGP_MASK_KEY 变化会让已加密数据（远程数据源口令、ENCRYPT 脱敏策略）无法解密
     jwt = secrets.token_urlsafe(48)
     mask = secrets.token_urlsafe(32)
+    try:
+        code, old_env, err = l.sh("cat %s/datagov.env 2>/dev/null" % APP)
+        for line in (old_env or "").splitlines():
+            if line.startswith("DGP_JWT_SECRET=") and len(line.split("=", 1)[1]) > 10:
+                jwt = line.split("=", 1)[1].strip()
+            if line.startswith("DGP_MASK_KEY=") and len(line.split("=", 1)[1]) > 10:
+                mask = line.split("=", 1)[1].strip()
+        print("  复用已有 JWT/MASK 密钥: %s" % ("是" if jwt and mask else "否"))
+    except Exception as e:
+        print("  读取已有密钥失败（将生成新密钥）: %s" % e)
     env = "\n".join([
         "# DGP 数据治理平台运行环境（部署脚本生成，权限 600）",
         "SPRING_PROFILES_ACTIVE=mysql",

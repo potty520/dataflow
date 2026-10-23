@@ -153,6 +153,18 @@ public class SecurityController {
         return Result.ok(M.of("id", id));
     }
 
+    /** 删除脱敏策略（管理员/安全管理员；用于下线策略与验收清理）。 */
+    @DeleteMapping("/mask/policies/{id}")
+    @RequirePerm("security:mask:edit")
+    public Result<Object> deletePolicy(@PathVariable long id) {
+        Map<String, Object> before = db.one("SELECT * FROM sec_mask_policy WHERE id=?", id);
+        if (before == null) throw new BizException(ErrorCode.NOT_FOUND, "策略不存在");
+        db.update("DELETE FROM sec_mask_policy WHERE id=?", id);
+        auditService.record(AuthContext.username(), "MASK_DELETE", "security", String.valueOf(id),
+                String.valueOf(before.get("tableName")) + "." + before.get("columnName"), "-", "SUCCESS");
+        return Result.ok(M.of("id", id, "deleted", true));
+    }
+
     @PostMapping("/mask/policies/{id}/approve")
     @RequirePerm("security:mask:approve")
     public Result<Object> approve(@PathVariable long id, @RequestBody(required = false) Map<String, Object> b) {

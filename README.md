@@ -156,7 +156,7 @@ npm run dev        # http://localhost:5173，/api 与 /open 自动代理到 127.
 - 🗄️ **数据库脚本：[sql/README.md](sql/README.md)**（MySQL 结构 + 初始化数据 + H2/PG 结构）
 - 📚 **文档索引：[docs/README.md](docs/README.md)**
 - ⭐ **验收报告：[docs/验收报告-全功能验证.md](docs/验收报告-全功能验证.md)**（294 项断言全部通过）
-- **320 个 REST 接口**，完整清单见 [docs/API清单.md](docs/API清单.md)（含方法、路径、所需权限）。
+- **321 个 REST 接口**，完整清单见 [docs/API清单.md](docs/API清单.md)（含方法、路径、所需权限）。
 - 统一响应：`{ "code": 0, "message": "ok", "data": ..., "traceId": "..." }`；`403` 为无权限、`401` 为未认证/令牌失效。
 - 开放网关：`/open/v1/**`（AK/SK 或 OAuth2 令牌），支持限流、配额、黑名单与字段脱敏。
 - 其他文档：

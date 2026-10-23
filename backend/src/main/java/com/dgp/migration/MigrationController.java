@@ -190,10 +190,11 @@ public class MigrationController {
             if (type.isBlank()) continue;
             String col = Req.str(c.get("columnName"));
             if (col != null && !col.isBlank()) Db.identifier(col);
+            // 注意：不能用三元表达式混用 int/Double，未传 tolerance 时 Db.num 为 null 会触发拆箱 NPE
+            Double tol = Db.num(c.get("tolerance"));
             db.insert("INSERT INTO mig_check(project_id,check_type,column_name,tolerance) VALUES(?,?,?,?)",
                     id, type, (col == null || col.isBlank()) ? null : col,
-                    java.math.BigDecimal.valueOf(Db.num(c.getOrDefault("tolerance", 0)) == null
-                            ? 0 : Db.num(c.get("tolerance"))));
+                    java.math.BigDecimal.valueOf(tol == null ? 0d : tol));
         }
         return Result.ok(M.of("projectId", id, "checkCount", items.size()));
     }
