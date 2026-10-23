@@ -239,3 +239,38 @@ $env:DGP_SOCKS5_HOST="127.0.0.1"; $env:DGP_SOCKS5_PORT="1080"
 | 定时 | 调度器实际执行（SCHEDULED，5905 行） |
 
 > 页面入口：数据集成 → 聚合汇总。
+
+### 3.8 安全会话与多租户隔离（v1.6）
+
+**会话与令牌**
+
+- 登录创建会话 `sid`，accessToken/refreshToken 均带 `sid`；`sys_session` 记录状态，`sys_refresh_token` 记录每次轮换；
+- **登出**：吊销会话（`sys_session.REVOKED`）+ 拉黑当前 accessToken + 该 sid 下未使用 refreshToken 全部吊销；
+- **刷新**：refreshToken 一次性使用（`used_at`），成功后签发新 accessToken+refreshToken（轮换）；
+  已用 token 再次使用判定为重放，直接吊销整个会话（所有派生 accessToken 立即失效）；
+- 兼容性：升级前签发的 refreshToken 无登记记录，会要求重新登录（安全默认）。
+
+**多租户行级隔离**
+
+- 非平台管理员（ROLE_GOV_ADMIN）的 SELECT/UPDATE/DELETE，自动为**单表及主表 JOIN** 查询追加 `tenant_id = 当前租户`；
+- 派生表/UNION 等无法安全改写的 SQL 跳过（日志可查）；可用 `/*tenant:off*/` 显式豁免；
+- 平台管理员保留全租户视角（用户/租户管理需要）；
+- 效果：tenant2（zhangsan）、tenant3（wangwu）不再看到 tenant1 的 26+ 张表、问题与 KPI；跨租户详情返回 404。
+
+**其他**
+
+- 报告生成 `/api/v1/report/generate` 的 `title` 现在写入 HTML `<title>/<h1>`、CSV 首行与 Markdown 标题；
+- 概览 KPI 新增 `closedRate`（问题闭环率），无问题模块权限的角色也能正常显示（0.0% 起）。
+
+**实测（4C8G / MySQL）**
+
+| 项 | 结果 |
+|---|---|
+| tenant1 用户元数据 | 28 张表；tenant2/3 用户 0 张 |
+| 跨租户详情 | 404 |
+| 登出后 refresh | 401（会话已登出） |
+| refresh 重放 | 401（会话注销，派生 accessToken 同时失效） |
+| 报告标题 | HTML/CSV/MD 均包含自定义标题 |
+| 分析师闭环率 | 8.1%（非空） |
+
+**回归账号**：tenant1 新增 `dev_t1` / `quality_t1` / `analyst_t1`（口令同演示账号 `Dgp@2026`），用于多租户下仍能操作 tenant1 演示数据。

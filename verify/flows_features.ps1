@@ -23,8 +23,8 @@ function AuthH($t) { return @{ Authorization = "Bearer $t" } }
 
 function JStr($v) { if ($null -eq $v -or "$v" -eq "") { return 'null' } else { return '"' + ("$v" -replace '"','\"') + '"' } }
 $adm = Login "admin" "Dgp@2026"; $HA = AuthH $adm
-$qlt = Login "liuqin" "Dgp@2026"; $HQ = AuthH $qlt
-$ana = Login "wangwu" "Dgp@2026"; $HN = AuthH $ana
+$qlt = Login "quality_t1" "Dgp@2026"; $HQ = AuthH $qlt
+$ana = Login "analyst_t1" "Dgp@2026"; $HN = AuthH $ana
 
 # ================= 流式质检 =================
 Section "M1. 流式（微批）数据质检"
@@ -162,7 +162,7 @@ $rb = C "POST" ("/api/v1/migration/runs/" + $runBd.runId + "/rollback") $HA $nul
 $rbd = D $rb
 Check "回滚增量批次 -> 200 且删除行数>0" (($rb.s -eq 200) -and ($rbd.deletedRows -gt 0)) ("deleted=" + $rbd.deletedRows)
 $fullProjs = @((D (C "GET" "/api/v1/migration/projects?status=DONE&pageSize=20" $HA $null)).records)
-$fullProj = $fullProjs | Where-Object { $_.mode -eq "FULL" } | Select-Object -First 1
+$fullProj = $fullProjs | Where-Object { $_.mode -eq "FULL" -and $_.sourceTable -notlike "v_agg_*" } | Select-Object -First 1
 if ($fullProj) {
     $fr = C "POST" ("/api/v1/migration/projects/" + $fullProj.id + "/run") $HA '{"replace":1}'
     $frd = D $fr

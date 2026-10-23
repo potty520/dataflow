@@ -23,7 +23,7 @@
         <div class="icon"><el-icon><CircleCheck /></el-icon></div>
         <div class="label">综合质量分</div>
         <div class="value">{{ kpi.qualityScore }} <small>{{ level(kpi.qualityScore) }}</small></div>
-        <div class="foot">规则 {{ kpi.ruleCount }} 条 · 问题闭环率 {{ metrics.closedRate }}%</div>
+        <div class="foot">规则 {{ kpi.ruleCount }} 条 · 问题闭环率 {{ closedRate }}%</div>
       </div>
       <div class="stat orange">
         <div class="icon"><el-icon><Warning /></el-icon></div>
@@ -155,6 +155,13 @@ const store = useAuthStore()
 
 const data = ref({})
 const metrics = ref({})
+// 闭环率以看板 KPI 为准（无问题模块权限时也能显示）；旁路指标作为兜底
+const closedRate = computed(() => {
+  const v = kpi.value.closedRate
+  if (v !== null && v !== undefined && v !== "") return v
+  const m = metrics.value.closedRate
+  return (m === null || m === undefined || m === "") ? "-" : m
+})
 const kpi = computed(() => data.value.kpi || {})
 const todos = computed(() => data.value.alerts || {})
 

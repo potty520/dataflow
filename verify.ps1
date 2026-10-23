@@ -72,7 +72,7 @@ Check "mask/preview 拒绝未登记表" ($mp.Status -ge 400) $mp.Status
 $mp2 = Call "POST" "/api/v1/security/mask/preview" $H '{"tableName":"ods_customer","columnName":"phone","algorithm":"MASK"}'
 $mp2d = J $mp2
 Check "admin 预览可按审批权限看原文" ($mp2d.data.rawVisible -eq $true) ("rawVisible=" + $mp2d.data.rawVisible)
-$al = Call "POST" "/api/v1/auth/login" $null '{"username":"wangwu","password":"Dgp@2026"}'
+$al = Call "POST" "/api/v1/auth/login" $null '{"username":"analyst_t1","password":"Dgp@2026"}'
 $at = ((J $al).data).accessToken
 $mp3 = J (Call "POST" "/api/v1/security/mask/preview" @{ Authorization = "Bearer $at" } '{"tableName":"ods_customer","columnName":"phone","algorithm":"MASK"}')
 Check "analyst 预览不回传原文" ($mp3.data.rawVisible -eq $false -and $null -eq $mp3.data.samples[0].raw) ("raw=" + $mp3.data.samples[0].raw)
@@ -117,7 +117,7 @@ Check "稽核执行成功" ($rc.Status -eq 200) ("score=" + (J $rc).data.score)
 $scoreData = J (Call "GET" "/api/v1/quality/scores" $H $null)
 $today = (Get-Date).ToString("yyyy-MM-dd")
 Check "稽核结果回写当日趋势" ([string]$scoreData.data.trend[-1].statDate -eq $today) ("latest=" + $scoreData.data.trend[-1].statDate + " today=" + $today + " overall=" + $scoreData.data.overallScore)
-$lq = J (Call "POST" "/api/v1/auth/login" $null '{"username":"liuqin","password":"Dgp@2026"}'); $HQ = @{ Authorization = "Bearer " + $lq.data.accessToken }
+$lq = J (Call "POST" "/api/v1/auth/login" $null '{"username":"quality_t1","password":"Dgp@2026"}'); $HQ = @{ Authorization = "Bearer " + $lq.data.accessToken }
 $qrs = (Get-Random -Maximum 99999)
 $rq = Call "POST" "/api/v1/quality/rules" $H ('{"code":"QR-VERIFY-' + $qrs + '","name":"验收自检规则","tableName":"ods_customer","columnName":"customer_id","dimension":"ACCURACY","ruleType":"CUSTOM_SQL","expression":"SELECT COUNT(*) FROM ods_customer","tolerance":0,"severity":"MAJOR"}')
 $rid = (J $rq).data.id
@@ -128,7 +128,7 @@ $iss = J (Call "GET" "/api/v1/quality/issues?status=DISCOVERED&pageSize=5" $H $n
 $issue = $iss.data.records[0]
 Check "失败规则稽核产生问题单" ([bool]$issue) ("ruleId=" + $rid)
 if ($issue) {
-    Check "派单 -> 200" ((Call "POST" "/api/v1/quality/issues/$($issue.id)/dispatch" $H '{"assignee":"liuqin","dueHours":72}').Status -eq 200) ""
+    Check "派单 -> 200" ((Call "POST" "/api/v1/quality/issues/$($issue.id)/dispatch" $H '{"assignee":"quality_t1","dueHours":72}').Status -eq 200) ""
     $hd = Call "POST" "/api/v1/quality/issues/$($issue.id)/handle" $H '{"handleResult":"已修复源数据"}'
     Check "派单后可直接处理 -> 200" ($hd.Status -eq 200) ("HTTP " + $hd.Status + " " + (J $hd).message)
     $rv = Call "POST" "/api/v1/quality/issues/$($issue.id)/review" $HQ '{"result":"PASS","comment":"ok"}'
@@ -170,7 +170,7 @@ if ($fid) {
 }
 
 Write-Output "=========== 11. 六角色可见性 ==========="
-$roles = @("admin","zhangsan","liuqin","wangwu","secadmin","consultant")
+$roles = @("admin","dev_t1","quality_t1","analyst_t1","secadmin","consultant")
 foreach ($u in $roles) {
     $l = J (Call "POST" "/api/v1/auth/login" $null ('{"username":"' + $u + '","password":"Dgp@2026"}'))
     if (-not $l.data) { Check "$u 登录" $false $l.message; continue }

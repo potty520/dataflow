@@ -1357,3 +1357,35 @@ CREATE TABLE IF NOT EXISTS mig_agg_run (
 
 CREATE INDEX IF NOT EXISTS idx_mig_agg_run_agg ON mig_agg_run(agg_id, start_time);
 CREATE INDEX IF NOT EXISTS idx_mig_agg_def_next ON mig_agg_def(status, next_run_time);
+
+-- ============================================================
+-- v1.6：会话与 refreshToken 轮换（登出吊销会话、重放检测）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sys_session (
+    sid VARCHAR(64) PRIMARY KEY,
+    username VARCHAR(64),
+    user_id BIGINT,
+    tenant_id BIGINT,
+    status VARCHAR(16) DEFAULT 'ACTIVE',
+    ip VARCHAR(64),
+    user_agent VARCHAR(255),
+    create_time TIMESTAMP,
+    last_seen TIMESTAMP,
+    revoked_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sys_refresh_token (
+    jti VARCHAR(64) PRIMARY KEY,
+    sid VARCHAR(64),
+    username VARCHAR(64),
+    user_id BIGINT,
+    tenant_id BIGINT,
+    expire_at BIGINT,
+    used_at TIMESTAMP,
+    revoked_at TIMESTAMP,
+    replaced_by VARCHAR(64),
+    create_time TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_sid ON sys_refresh_token(sid);
+CREATE INDEX IF NOT EXISTS idx_session_user ON sys_session(username, status);

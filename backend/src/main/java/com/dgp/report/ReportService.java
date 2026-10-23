@@ -41,6 +41,10 @@ public class ReportService {
     }
 
     public Map<String, Object> generateQualityReport(String scope, String period, String creator) {
+        return generateQualityReport(scope, period, null, creator);
+    }
+
+    public Map<String, Object> generateQualityReport(String scope, String period, String title, String creator) {
         List<Map<String, Object>> tables = loadTables(scope);
         double avg = 0;
         int counted = 0;
@@ -61,6 +65,10 @@ public class ReportService {
                         + "GROUP BY stat_date ORDER BY stat_date DESC LIMIT 14");
         Map<String, Object> ctx = new LinkedHashMap<>();
         ctx.put("scope", scope == null ? "全域核心表" : scope);
+        String reportTitle = (title == null || title.isBlank())
+                ? "数据质量分析报告（" + (period == null ? LocalDate.now().toString().substring(0, 7) : period) + "）"
+                : title.trim();
+        ctx.put("title", reportTitle);
         ctx.put("period", period == null ? LocalDate.now().toString().substring(0, 7) : period);
         ctx.put("avgScore", finalAvg);
         ctx.put("level", levelOf(finalAvg));
@@ -73,7 +81,7 @@ public class ReportService {
         String code = Ids.code("QRP");
         long id = db.insert("INSERT INTO qa_report(tenant_id,code,title,report_type,scope,period,total_score,score_level,context,"
                         + "status,creator,create_time) VALUES(?,?,?,'QUALITY_TABLE_REPORT',?,?,?,?,?,'GENERATED',?,?)",
-                com.dgp.security.AuthContext.tenantId(), code, "数据质量分析报告（" + ctx.get("period") + "）",
+                com.dgp.security.AuthContext.tenantId(), code, reportTitle,
                 ctx.get("scope"), ctx.get("period"),
                 BigDecimal.valueOf(finalAvg).setScale(2, RoundingMode.HALF_UP), levelOf(finalAvg),
                 JsonUtil.toJson(ctx), creator, LocalDateTime.now());
@@ -111,7 +119,7 @@ public class ReportService {
         try {
             Files.createDirectories(reportDir);
             StringBuilder h = new StringBuilder();
-            h.append("<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><title>数据质量分析报告</title>");
+            h.append("<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><title>").append(esc(ctx.get("title"))).append("</title>");
             h.append("<style>body{font-family:'Microsoft YaHei',sans-serif;margin:40px;color:#1f2937}")
                     .append("h1{font-size:26px;border-bottom:3px solid #2563eb;padding-bottom:10px}")
                     .append("h2{font-size:18px;margin-top:28px;color:#1e40af}")
@@ -119,7 +127,7 @@ public class ReportService {
                     .append("th,td{border:1px solid #d1d5db;padding:7px 10px;text-align:left}")
                     .append("th{background:#eff6ff}.kpi{display:inline-block;margin-right:26px}")
                     .append(".kpi b{font-size:30px;color:#2563eb}.muted{color:#6b7280;font-size:12px}</style></head><body>");
-            h.append("<h1>数据质量分析报告</h1>");
+            h.append("<h1>").append(esc(ctx.get("title"))).append("</h1>");
             h.append("<p class=\"muted\">报告编号：").append(esc(code)).append(" ｜ 统计周期：").append(esc(ctx.get("period")))
                     .append(" ｜ 编制时间：").append(esc(LocalDateTime.now().withNano(0))).append("</p>");
             h.append("<h2>一、总体评分</h2><div>");
@@ -182,7 +190,7 @@ public class ReportService {
             Files.createDirectories(reportDir);
             Path target;
             if ("csv".equals(fmt)) {
-                StringBuilder sb = new StringBuilder("\uFEFF表名,中文名,行数,质量评分,等级,责任人\n");
+                StringBuilder sb = new StringBuilder("\uFEFF").append(csv(r.get("title"))).append("\n表名,中文名,行数,质量评分,等级,责任人\n");
                 for (Map<String, Object> t : loadTables(null)) {
                     sb.append(csv(t.get("name"))).append(",").append(csv(t.get("cnName"))).append(",")
                             .append(csv(t.get("rowCount"))).append(",").append(csv(t.get("qualityScore"))).append(",")

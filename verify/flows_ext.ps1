@@ -22,8 +22,8 @@ function Section($t) { Write-Output ""; Write-Output ("=== " + $t + " ===") }
 function Login($u, $p) { return (J (Call "POST" "/api/v1/auth/login" $null ('{"username":"' + $u + '","password":"' + $p + '"}'))).data.accessToken }
 function AuthH($t) { return @{ Authorization = "Bearer $t" } }
 
-$adm = Login "admin" "Dgp@2026"; $dev = Login "zhangsan" "Dgp@2026"; $qlt = Login "liuqin" "Dgp@2026"
-$ana = Login "wangwu" "Dgp@2026"; $sec = Login "secadmin" "Dgp@2026"; $con = Login "consultant" "Dgp@2026"
+$adm = Login "admin" "Dgp@2026"; $dev = Login "dev_t1" "Dgp@2026"; $qlt = Login "quality_t1" "Dgp@2026"
+$ana = Login "analyst_t1" "Dgp@2026"; $sec = Login "secadmin" "Dgp@2026"; $con = Login "consultant" "Dgp@2026"
 $HA = AuthH $adm; $HD = AuthH $dev; $HQ = AuthH $qlt; $HN = AuthH $ana; $HS = AuthH $sec; $HC = AuthH $con
 
 # ================= E. 集成与加工 =================
@@ -94,7 +94,7 @@ Section "G. 数据质量"
 $rCode = "QR-VERIFY-" + (Get-Random -Maximum 9999)
 $rc = Call "POST" "/api/v1/quality/rules" $HQ ('{"code":"' + $rCode + '","name":"验收规则-手机号非空","tableName":"ods_customer","columnName":"phone","dimension":"COMPLETENESS","ruleType":"NULL_CHECK","expression":"SELECT COUNT(*) FROM ods_customer WHERE phone IS NULL","tolerance":0.01,"severity":"MAJOR"}')
 $rid = (D $rc).id
-Check "创建质量规则 -> 200 (liuqin)" ($rc.Status -eq 200) ("id=" + $rid)
+Check "创建质量规则 -> 200 (quality_t1)" ($rc.Status -eq 200) ("id=" + $rid)
 Check "规则表达式写操作 -> 400" ((Call "POST" "/api/v1/quality/rules" $HQ '{"name":"bad","tableName":"ods_customer","expression":"DELETE FROM ods_customer"}').Status -eq 400) ""
 Check "规则表达式多语句 -> 400" ((Call "POST" "/api/v1/quality/rules" $HQ '{"name":"bad2","tableName":"ods_customer","expression":"SELECT 1; DROP TABLE x"}').Status -eq 400) ""
 Check "规则表达式文件函数 -> 400" ((Call "POST" "/api/v1/quality/rules" $HQ '{"name":"bad3","tableName":"ods_customer","expression":"SELECT * FROM CSVREAD(''x'')"}').Status -eq 400) ""
@@ -137,7 +137,7 @@ if (-not $discovered) {
 }
 Check "问题池有可闭环的 DISCOVERED 单" ([bool]$discovered) ("total=" + $issues.Count)
 if ($discovered) {
-    Check "问题派单 -> 200" ((Call "POST" "/api/v1/quality/issues/$($discovered.id)/dispatch" $HQ '{"assignee":"liuqin","dueHours":72}').Status -eq 200) ""
+    Check "问题派单 -> 200" ((Call "POST" "/api/v1/quality/issues/$($discovered.id)/dispatch" $HQ '{"assignee":"quality_t1","dueHours":72}').Status -eq 200) ""
     Check "派单后处理 -> 200（状态机已修）" ((Call "POST" "/api/v1/quality/issues/$($discovered.id)/handle" $HQ '{"handleResult":"源库已补录"}').Status -eq 200) ""
     Check "责任人自复核 -> 403" ((Call "POST" "/api/v1/quality/issues/$($discovered.id)/review" $HQ '{"result":"PASS","comment":"ok"}').Status -eq 403) ""
     Check "他人复核 -> 200 且关闭" (((Call "POST" "/api/v1/quality/issues/$($discovered.id)/review" $HA '{"result":"PASS","comment":"验收通过"}')).Status -eq 200) ""

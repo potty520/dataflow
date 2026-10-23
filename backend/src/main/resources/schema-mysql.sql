@@ -1361,3 +1361,35 @@ CREATE TABLE IF NOT EXISTS mig_agg_run (
     KEY idx_mig_agg_run_agg (agg_id, start_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+-- ============================================================
+-- v1.6：会话与 refreshToken 轮换（登出吊销会话、重放检测）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sys_session (
+    sid VARCHAR(64) PRIMARY KEY,
+    username VARCHAR(64),
+    user_id BIGINT,
+    tenant_id BIGINT,
+    status VARCHAR(16) DEFAULT 'ACTIVE',
+    ip VARCHAR(64),
+    user_agent VARCHAR(255),
+    create_time DATETIME,
+    last_seen DATETIME,
+    revoked_at DATETIME,
+    KEY idx_session_user (username, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS sys_refresh_token (
+    jti VARCHAR(64) PRIMARY KEY,
+    sid VARCHAR(64),
+    username VARCHAR(64),
+    user_id BIGINT,
+    tenant_id BIGINT,
+    expire_at BIGINT,
+    used_at DATETIME,
+    revoked_at DATETIME,
+    replaced_by VARCHAR(64),
+    create_time DATETIME,
+    KEY idx_refresh_sid (sid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+

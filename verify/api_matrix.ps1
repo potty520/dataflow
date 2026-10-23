@@ -17,7 +17,7 @@ function Call($method, $path, $headers, $body) {
 }
 function J($r) { try { return ($r.Body | ConvertFrom-Json) } catch { return $null } }
 
-$users = @("admin", "zhangsan", "liuqin", "wangwu", "secadmin", "consultant")
+$users = @("admin", "dev_t1", "quality_t1", "analyst_t1", "secadmin", "consultant")
 $sessions = @{}
 foreach ($u in $users) {
     $lg = J (Call "POST" "/api/v1/auth/login" $null ('{"username":"' + $u + '","password":"Dgp@2026"}'))

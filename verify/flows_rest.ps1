@@ -22,8 +22,8 @@ function Section($t) { Write-Output ""; Write-Output ("=== " + $t + " ===") }
 function Login($u, $p) { return (J (Call "POST" "/api/v1/auth/login" $null ('{"username":"' + $u + '","password":"' + $p + '"}'))).data.accessToken }
 function AuthH($t) { return @{ Authorization = "Bearer $t" } }
 
-$adm = Login "admin" "Dgp@2026"; $dev = Login "zhangsan" "Dgp@2026"; $qlt = Login "liuqin" "Dgp@2026"
-$ana = Login "wangwu" "Dgp@2026"; $sec = Login "secadmin" "Dgp@2026"; $con = Login "consultant" "Dgp@2026"
+$adm = Login "admin" "Dgp@2026"; $dev = Login "dev_t1" "Dgp@2026"; $qlt = Login "quality_t1" "Dgp@2026"
+$ana = Login "analyst_t1" "Dgp@2026"; $sec = Login "secadmin" "Dgp@2026"; $con = Login "consultant" "Dgp@2026"
 $HA = AuthH $adm; $HD = AuthH $dev; $HQ = AuthH $qlt; $HN = AuthH $ana; $HS = AuthH $sec; $HC = AuthH $con
 
 # ================= I. 数据资产 =================
@@ -160,8 +160,8 @@ Check "免登录 ping -> 200" ((Call "GET" "/api/v1/admin/ping" $null $null).Sta
 
 # ================= N. 跨域一致性 =================
 Section "N. 跨角色一致性"
-$expected = @{ admin = 20; zhangsan = 13; liuqin = 10; wangwu = 9; secadmin = 6; consultant = 8 }
-foreach ($u in @("admin", "zhangsan", "liuqin", "wangwu", "secadmin", "consultant")) {
+$expected = @{ admin = 20; dev_t1 = 13; quality_t1 = 10; analyst_t1 = 9; secadmin = 6; consultant = 8 }
+foreach ($u in @("admin", "dev_t1", "quality_t1", "analyst_t1", "secadmin", "consultant")) {
     $tk2 = Login $u "Dgp@2026"
     $H2 = AuthH $tk2
     $menus = @((D (Call "GET" "/api/v1/auth/menus" $H2 $null)).menus)

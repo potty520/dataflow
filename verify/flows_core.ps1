@@ -28,9 +28,9 @@ function AuthH($t) { return @{ Authorization = "Bearer $t" } }
 
 # ---------- 会话 ----------
 $adm = Login "admin" "Dgp@2026"
-$dev = Login "zhangsan" "Dgp@2026"
-$qlt = Login "liuqin" "Dgp@2026"
-$ana = Login "wangwu" "Dgp@2026"
+$dev = Login "dev_t1" "Dgp@2026"
+$qlt = Login "quality_t1" "Dgp@2026"
+$ana = Login "analyst_t1" "Dgp@2026"
 $sec = Login "secadmin" "Dgp@2026"
 $con = Login "consultant" "Dgp@2026"
 $HA = AuthH $adm; $HD = AuthH $dev; $HQ = AuthH $qlt; $HN = AuthH $ana; $HS = AuthH $sec; $HC = AuthH $con

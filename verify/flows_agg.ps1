@@ -65,7 +65,7 @@ $det2 = D (C "GET" ("/api/v1/migration/agg/" + $d2) $HA $null)
 Check "定时配置生效 -> nextRunTime 非空" ($null -ne $det2.nextRunTime) ("next=" + $det2.nextRunTime)
 
 Section "V3. 权限与清理"
-$ana = (D (C "POST" "/api/v1/auth/login" $null '{"username":"wangwu","password":"Dgp@2026"}')).accessToken
+$ana = (D (C "POST" "/api/v1/auth/login" $null '{"username":"analyst_t1","password":"Dgp@2026"}')).accessToken
 $HN = AuthH $ana
 Check "分析师访问聚合汇总 -> 403" ((C "GET" "/api/v1/migration/agg" $HN $null).s -eq 403) ""
 $null = C "DELETE" ("/api/v1/migration/agg/" + $d1) $HA $null

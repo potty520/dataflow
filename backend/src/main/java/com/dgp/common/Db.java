@@ -37,6 +37,7 @@ public class Db {
 
     public Db(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
+        TenantGuard.bind(sql -> jdbc.queryForList(sql));
     }
 
     public JdbcTemplate jdbc() {
@@ -44,7 +45,7 @@ public class Db {
     }
 
     public List<Map<String, Object>> list(String sql, Object... args) {
-        List<Map<String, Object>> rows = jdbc.queryForList(sql, args);
+        List<Map<String, Object>> rows = jdbc.queryForList(TenantGuard.rewrite(sql), args);
         List<Map<String, Object>> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
             out.add(normalize(r));
@@ -53,7 +54,7 @@ public class Db {
     }
 
     public Map<String, Object> one(String sql, Object... args) {
-        List<Map<String, Object>> rows = jdbc.queryForList(sql, args);
+        List<Map<String, Object>> rows = jdbc.queryForList(TenantGuard.rewrite(sql), args);
         return rows.isEmpty() ? null : normalize(rows.get(0));
     }
 
@@ -62,7 +63,7 @@ public class Db {
      */
     public Object scalar(String sql, Object... args) {
         try {
-            Object v = jdbc.queryForObject(sql, Object.class, args);
+            Object v = jdbc.queryForObject(TenantGuard.rewrite(sql), Object.class, args);
             if (v instanceof Timestamp ts) return ts.toLocalDateTime();
             if (v instanceof java.sql.Date d) return d.toLocalDate();
             return v;
@@ -72,12 +73,13 @@ public class Db {
     }
 
     public long count(String sql, Object... args) {
+        sql = TenantGuard.rewrite(sql);
         Object v = scalar(sql, args);
         return v == null ? 0L : ((Number) v).longValue();
     }
 
     public int update(String sql, Object... args) {
-        return jdbc.update(sql, args);
+        return jdbc.update(TenantGuard.rewrite(sql), args);
     }
 
     public long insert(String sql, Object... args) {
@@ -105,7 +107,7 @@ public class Db {
     public PageResult page(String baseSql, String orderBy, int pageNum, int pageSize, Object... args) {
         int pn = Math.max(1, pageNum);
         int ps = Math.min(200, Math.max(1, pageSize));
-        long total = count("SELECT COUNT(*) FROM (" + baseSql + ") t", args);
+        long total = count("SELECT COUNT(*) FROM (" + TenantGuard.rewrite(baseSql) + ") t", args);
         String sql = baseSql + (orderBy == null || orderBy.isBlank() ? "" : " ORDER BY " + safeOrder(orderBy))
                 + " LIMIT " + ps + " OFFSET " + (long) (pn - 1) * ps;
         return PageResult.of(list(sql, args), total, pn, ps);

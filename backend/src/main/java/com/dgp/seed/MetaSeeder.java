@@ -62,6 +62,9 @@ public class MetaSeeder {
                 {"zhangsan", "张三", "ROLE_DATA_DEV", "数据开发组", "zhangsan@dgp-demo.com", 2L},
                 {"liuqin", "刘琴", "ROLE_QUALITY", "数据质量组", "liuqin@dgp-demo.com", 2L},
                 {"wangwu", "王武", "ROLE_ANALYST", "经营分析部", "wangwu@dgp-demo.com", 3L},
+            {"dev_t1", "开发一号", "ROLE_DATA_DEV", "数据开发组", "dev_t1@dgp-demo.com", 1L},
+            {"quality_t1", "质量一号", "ROLE_QUALITY", "数据质量组", "quality_t1@dgp-demo.com", 1L},
+            {"analyst_t1", "分析一号", "ROLE_ANALYST", "经营分析部", "analyst_t1@dgp-demo.com", 1L},
                 {"secadmin", "赵安全", "ROLE_SEC_ADMIN", "安全合规组", "zhaoaq@dgp-demo.com", 1L},
                 {"consultant", "陈顾问", "ROLE_INDUSTRY_CONSULTANT", "行业实施组", "chengw@dgp-demo.com", 1L}
         };

@@ -31,7 +31,8 @@ public class JwtService {
         this.refreshDays = Math.max(1, refreshDays);
     }
 
-    private String create(Long userId, String username, String roleCode, Long tenantId, long minutes, String typ) {
+    private String create(Long userId, String username, String roleCode, Long tenantId, long minutes,
+                          String typ, String sid) {
         long now = System.currentTimeMillis() / 1000;
         Map<String, Object> header = new LinkedHashMap<>();
         header.put("alg", "HS256");
@@ -43,6 +44,7 @@ public class JwtService {
         payload.put("role", roleCode);
         payload.put("tid", tenantId);
         payload.put("typ", typ);
+        if (sid != null && !sid.isBlank()) payload.put("sid", sid);
         payload.put("iat", now);
         payload.put("exp", now + minutes * 60);
         payload.put("jti", java.util.UUID.randomUUID().toString().replace("-", ""));
@@ -54,11 +56,19 @@ public class JwtService {
     }
 
     public String accessToken(Long userId, String username, String roleCode, Long tenantId) {
-        return create(userId, username, roleCode, tenantId, tokenMinutes, TYP_ACCESS);
+        return accessToken(userId, username, roleCode, tenantId, null);
+    }
+
+    public String accessToken(Long userId, String username, String roleCode, Long tenantId, String sid) {
+        return create(userId, username, roleCode, tenantId, tokenMinutes, TYP_ACCESS, sid);
     }
 
     public String refreshToken(Long userId, String username, String roleCode, Long tenantId) {
-        return create(userId, username, roleCode, tenantId, refreshDays * 24L * 60L, TYP_REFRESH);
+        return refreshToken(userId, username, roleCode, tenantId, null);
+    }
+
+    public String refreshToken(Long userId, String username, String roleCode, Long tenantId, String sid) {
+        return create(userId, username, roleCode, tenantId, refreshDays * 24L * 60L, TYP_REFRESH, sid);
     }
 
     public long getTokenMinutes() {

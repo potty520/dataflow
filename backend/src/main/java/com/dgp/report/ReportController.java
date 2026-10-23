@@ -52,7 +52,7 @@ public class ReportController {
         String title = b.get("title") == null ? "数据质量报告" : String.valueOf(b.get("title"));
         String taskId = Ids.code("RT");
         Map<String, Object> gen = reportService.generateQualityReport(Req.str(b.get("scope")), Req.str(b.get("period")),
-                AuthContext.username());
+                title, AuthContext.username());
         // formats 支持 html/csv/md，逐个真实导出并落 rpt_file
         List<String> formats = new java.util.ArrayList<>();
         Object f = b.get("formats");

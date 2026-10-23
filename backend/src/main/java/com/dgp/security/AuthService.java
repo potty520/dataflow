@@ -37,6 +37,10 @@ public class AuthService {
     /** 已吊销 jti（登出立即写入；每 10s 与库做一次全量对齐，支持多实例部署）。 */
     private final Set<String> revokedJti = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private volatile long revokedSyncedAt = 0L;
+    /** 会话活跃缓存：sid -> 校验通过到期时间（毫秒）；登出即时清除，跨实例 5 秒内生效。 */
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> sessionActive =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long SESSION_CACHE_MS = 5_000;
 
     public AuthService(Db db, JwtService tokenService) {
         this.db = db;
@@ -110,27 +114,84 @@ public class AuthService {
         // 成功日志只写一次（原实现在 AuthService 与 AuthController 各写一次，导致重复计数）
         db.update("INSERT INTO sys_login_log(username,ip,status,message,user_agent,login_time) VALUES(?,?,?,?,?,?)",
                 username, ip, "SUCCESS", "登录成功", userAgent, LocalDateTime.now());
-        return tokenPair(au);
+        String sid = UUID.randomUUID().toString().replace("-", "");
+        db.insert("INSERT INTO sys_session(sid,username,user_id,tenant_id,status,ip,user_agent,create_time,last_seen) "
+                        + "VALUES(?,?,?,?,'ACTIVE',?,?,?,?)",
+                sid, au.getUsername(), au.getUserId(), au.getTenantId(), ip,
+                userAgent == null ? null : (userAgent.length() > 250 ? userAgent.substring(0, 250) : userAgent),
+                LocalDateTime.now(), LocalDateTime.now());
+        return tokenPair(au, sid);
     }
 
+    /**
+     * 刷新令牌：一次性轮换 + 重放检测。
+     * 旧 refreshToken 使用后立即标记 used_at；再次使用视为重放，直接吊销整个会话（sid 下所有令牌）。
+     */
     public Map<String, Object> refresh(String refreshToken) {
         Map<String, Object> payload = tokenService.verify(refreshToken, JwtService.TYP_REFRESH);
         if (payload == null) throw new BizException(ErrorCode.UNAUTHORIZED, "refreshToken 无效或已过期");
-        if (isRevoked(String.valueOf(payload.get("jti")))) {
-            throw new BizException(ErrorCode.UNAUTHORIZED, "refreshToken 已被吊销");
+        String jti = String.valueOf(payload.get("jti"));
+        String sid = payload.get("sid") == null ? null : String.valueOf(payload.get("sid"));
+        Map<String, Object> row = db.one("SELECT * FROM sys_refresh_token WHERE jti=?", jti);
+        if (row == null) throw new BizException(ErrorCode.UNAUTHORIZED, "会话已失效，请重新登录");
+        if (sid == null || sid.isBlank()) sid = String.valueOf(row.get("sid"));
+        if (row.get("revokedAt") != null) {
+            throw new BizException(ErrorCode.UNAUTHORIZED, "会话已登出，请重新登录");
+        }
+        if (row.get("usedAt") != null) {
+            revokeSession(sid);
+            throw new BizException(ErrorCode.UNAUTHORIZED, "refreshToken 已被使用（疑似重放），会话已注销");
+        }
+        long exp = row.get("expireAt") == null ? 0L : ((Number) row.get("expireAt")).longValue();
+        if (exp < System.currentTimeMillis() / 1000) {
+            throw new BizException(ErrorCode.UNAUTHORIZED, "refreshToken 已过期");
+        }
+        if (!sessionActive(sid)) {
+            throw new BizException(ErrorCode.UNAUTHORIZED, "会话已失效，请重新登录");
         }
         String username = String.valueOf(payload.get("sub"));
         Map<String, Object> user = db.one("SELECT * FROM sys_user WHERE username=?", username);
         if (user == null || !"启用".equals(user.get("status"))) {
             throw new BizException(ErrorCode.UNAUTHORIZED, "用户不存在或已停用");
         }
-        return tokenPair(toAuthUser(user));
+        // CAS 标记已用：并发刷新只有一个成功，其余视为重放
+        int marked = db.update("UPDATE sys_refresh_token SET used_at=? WHERE jti=? AND used_at IS NULL",
+                LocalDateTime.now(), jti);
+        if (marked == 0) {
+            revokeSession(sid);
+            throw new BizException(ErrorCode.UNAUTHORIZED, "refreshToken 已被使用（疑似重放），会话已注销");
+        }
+        Map<String, Object> out = tokenPair(toAuthUser(user), sid);
+        Map<String, Object> newPayload = tokenService.verifySignature(String.valueOf(out.get("refreshToken")));
+        if (newPayload != null) {
+            db.update("UPDATE sys_refresh_token SET replaced_by=? WHERE jti=?",
+                    String.valueOf(newPayload.get("jti")), jti);
+        }
+        db.update("UPDATE sys_session SET last_seen=? WHERE sid=?", LocalDateTime.now(), sid);
+        return out;
     }
 
     private Map<String, Object> tokenPair(AuthUser au) {
+        return tokenPair(au, null);
+    }
+
+    private Map<String, Object> tokenPair(AuthUser au, String sid) {
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("accessToken", tokenService.accessToken(au.getUserId(), au.getUsername(), au.getRoleCode(), au.getTenantId()));
-        out.put("refreshToken", tokenService.refreshToken(au.getUserId(), au.getUsername(), au.getRoleCode(), au.getTenantId()));
+        out.put("accessToken", tokenService.accessToken(au.getUserId(), au.getUsername(), au.getRoleCode(), au.getTenantId(), sid));
+        String refresh = tokenService.refreshToken(au.getUserId(), au.getUsername(), au.getRoleCode(), au.getTenantId(), sid);
+        out.put("refreshToken", refresh);
+        Map<String, Object> rp = tokenService.verifySignature(refresh);
+        if (rp != null && sid != null) {
+            long exp = ((Number) rp.getOrDefault("exp", 0L)).longValue();
+            try {
+                db.insert("INSERT INTO sys_refresh_token(jti,sid,username,user_id,tenant_id,expire_at,create_time) "
+                                + "VALUES(?,?,?,?,?,?,?)",
+                        String.valueOf(rp.get("jti")), sid, au.getUsername(), au.getUserId(),
+                        au.getTenantId(), exp, LocalDateTime.now());
+            } catch (Exception ignore) {
+                // 极端并发下主键冲突：已存在即视为已登记
+            }
+        }
         out.put("tokenType", "Bearer");
         out.put("expiresIn", tokenService.getTokenMinutes() * 60);
         out.put("refreshExpiresIn", tokenService.getRefreshDays() * 24 * 60 * 60);
@@ -142,6 +203,8 @@ public class AuthService {
         Map<String, Object> payload = tokenService.verify(token, JwtService.TYP_ACCESS);
         if (payload == null) return null;
         if (isRevoked(String.valueOf(payload.get("jti")))) return null;
+        Object sid = payload.get("sid");
+        if (sid != null && !sessionActive(String.valueOf(sid))) return null;
         String username = String.valueOf(payload.get("sub"));
         // 鉴权结果缓存：原本每个请求要查"黑名单 + 用户 + 角色权限"3 次库，
         // 高并发下这是主要的数据库压力来源；缓存后读请求 0 次鉴权查询。
@@ -186,8 +249,36 @@ public class AuthService {
         }
         // 立即在本进程生效（不必等 10s 与库对齐）
         revokedJti.add(jti);
+        // 关键修复：登出同时吊销会话，使 refreshToken 及其派生的所有 accessToken 一并失效
+        Object sid = payload.get("sid");
+        if (sid != null && !String.valueOf(sid).isBlank()) {
+            revokeSession(String.valueOf(sid));
+        }
         // 顺手清理过期黑名单，避免表无限增长
         db.update("DELETE FROM sys_token_blacklist WHERE expire_at < ?", System.currentTimeMillis() / 1000 - 60);
+    }
+
+    /** 吊销会话：会话状态置 REVOKED，该 sid 下未使用的 refreshToken 全部吊销，并清本地缓存。 */
+    public void revokeSession(String sid) {
+        if (sid == null || sid.isBlank()) return;
+        LocalDateTime now = LocalDateTime.now();
+        db.update("UPDATE sys_session SET status='REVOKED',revoked_at=? WHERE sid=? AND revoked_at IS NULL", now, sid);
+        db.update("UPDATE sys_refresh_token SET revoked_at=? WHERE sid=? AND revoked_at IS NULL", now, sid);
+        sessionActive.remove(sid);
+    }
+
+    /** 会话是否活跃（本地缓存 5s，跨实例登出后最多 5s 生效）。 */
+    private boolean sessionActive(String sid) {
+        if (sid == null || sid.isBlank()) return true;
+        long now = System.currentTimeMillis();
+        Long until = sessionActive.get(sid);
+        if (until != null && until > now) return true;
+        Map<String, Object> row = db.one("SELECT status,revoked_at FROM sys_session WHERE sid=?", sid);
+        if (row == null) return false;
+        boolean active = row.get("revokedAt") == null && "ACTIVE".equals(String.valueOf(row.get("status")));
+        if (active) sessionActive.put(sid, now + SESSION_CACHE_MS);
+        else sessionActive.remove(sid);
+        return active;
     }
 
     private boolean isRevoked(String jti) {

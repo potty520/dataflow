@@ -48,7 +48,7 @@ if (-not $proxyPort) { $proxyPort = 1080 }
 $tok = LoginRetry "admin" "Dgp@2026"
 if (-not $tok) { Write-Output "登录失败，终止"; exit 1 }
 $HA = AuthH $tok
-$anaTok = LoginRetry "wangwu" "Dgp@2026"
+$anaTok = LoginRetry "analyst_t1" "Dgp@2026"
 $HN = AuthH $anaTok
 $sfx = Get-Random -Maximum 999999
 $tgtCross = "zz_cross_$sfx"

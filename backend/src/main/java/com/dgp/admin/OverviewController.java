@@ -38,6 +38,8 @@ public class OverviewController {
                                 "ruleCount", db.count("SELECT COUNT(*) FROM qa_rule"),
                                 "issueOpen", db.count("SELECT COUNT(*) FROM qa_issue WHERE status NOT IN ('CLOSED','IGNORED')"),
                                 "issueClosed", db.count("SELECT COUNT(*) FROM qa_issue WHERE status='CLOSED'"),
+                                // 闭环率由看板自身计算（不再依赖问题模块权限，避免分析师看到空白）
+                                "closedRate", db.scalar("SELECT COALESCE(ROUND(SUM(CASE WHEN status='CLOSED' THEN 1 ELSE 0 END)*100.0/NULLIF(COUNT(*),0),1),0) FROM qa_issue"),
                                 "apiCount", db.count("SELECT COUNT(*) FROM svc_api WHERE status='PUBLISHED'"),
                                 "callCount", db.count("SELECT COUNT(*) FROM svc_call_log"),
                                 "jobCount", db.count("SELECT COUNT(*) FROM int_job WHERE job_type<>'WORKFLOW'"),
