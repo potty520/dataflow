@@ -195,6 +195,17 @@ export const migrationApi = {
   runFileTask: (id) => http.post(`/api/v1/migration/files/tasks/${id}/run`),
   fileTaskRuns: (id) => http.get(`/api/v1/migration/files/tasks/${id}/runs`),
   testFtp: (data) => http.post('/api/v1/migration/files/test', data),
+  // ---- 聚合汇总（v1.5）----
+  aggList: (params) => http.get('/api/v1/migration/agg', { params }),
+  aggDetail: (id) => http.get(`/api/v1/migration/agg/${id}`),
+  aggCreate: (data) => http.post('/api/v1/migration/agg', data),
+  aggUpdate: (id, data) => http.put(`/api/v1/migration/agg/${id}`, data),
+  aggDelete: (id) => http.delete(`/api/v1/migration/agg/${id}`),
+  aggPreview: (id) => http.post(`/api/v1/migration/agg/${id}/preview`),
+  aggBuild: (id) => http.post(`/api/v1/migration/agg/${id}/build`),
+  aggRefresh: (id) => http.post(`/api/v1/migration/agg/${id}/refresh`),
+  aggRuns: (id) => http.get(`/api/v1/migration/agg/${id}/runs`),
+  aggEnable: (id, enabled) => http.post(`/api/v1/migration/agg/${id}/enable`, { enabled }),
 }
 export const securityApi = {
   sensitiveRules: () => http.get('/api/v1/security/sensitive/rules'),

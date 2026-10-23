@@ -60,3 +60,11 @@ v1.4 新增远程数据源、FTP 文件任务与批次表，并为迁移项目�
 ```bash
 mysql -u root -p dgp < sql/upgrade-v1.3-to-v1.4.sql
 ```
+
+## 已有数据库升级（v1.4 → v1.5）
+
+v1.5 新增「聚合汇总」两张表（无字段变更）：
+
+```bash
+mysql -u root -p dgp < sql/upgrade-v1.4-to-v1.5.sql
+```

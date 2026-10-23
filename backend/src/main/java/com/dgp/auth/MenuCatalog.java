@@ -38,6 +38,7 @@ public final class MenuCatalog {
         out.add(item("service", "数据服务", "/service", "Promotion", "service:api:view", "service"));
         out.add(item("migration", "数据迁移", "/migration", "Switch", "migration:project:view", "integration"));
         out.add(item("migration-tools", "远程与文件迁移", "/migration/tools", "Files", "migration:file:view", "integration"));
+        out.add(item("migration-agg", "聚合汇总", "/migration/agg", "DataAnalysis", "migration:agg:view", "integration"));
         out.add(item("industry", "行业适配", "/industry", "Box", "industry:package:view", "industry"));
         out.add(item("admin", "系统管理", "/admin", "Setting", "sys:config:view", "admin"));
         return out;

@@ -193,3 +193,49 @@ $env:DGP_SOCKS5_HOST="127.0.0.1"; $env:DGP_SOCKS5_PORT="1080"
 | 批次回滚 | 删除 24000 行，PG 行数归 0；重跑恢复 24000 行 |
 
 > 回滚时水位字符串参数会按目标库要求转成时间类型（PostgreSQL 不接受 `timestamp <= varchar`），MySQL 同样兼容。
+
+### 3.7 聚合汇总（v1.5，产品化）
+
+把「迁移中计算」沉淀成两个产品能力：
+
+**① 聚合视图迁移向导**
+
+1. 新建聚合汇总：选源表（或远程数据源表）→ 选维度字段（GROUP BY）→ 配置指标（COUNT/COUNT_DISTINCT/SUM/AVG/MAX/MIN + 输出别名）→ 可选过滤条件；
+2. 预览：自动生成源视图 SQL 与目标表 DDL（指标类型自动匹配：COUNT→BIGINT、SUM/AVG→DECIMAL/NUMERIC、MAX/MIN→按源字段类型）；
+3. 一键生成：在源库建/替换视图 `v_agg_xxx`、在目标库建汇总表、创建 FULL 迁移项目（视图→汇总表）并写好映射；
+4. 刷新：执行迁移项目写入汇总表并记录行数/状态/耗时。
+
+**② 汇总刷新作业**
+
+| 模式 | 行为 | 适用 |
+|---|---|---|
+| FULL | 清空目标表后重写（迁移项目 replace） | 全量日报/月报，跨实例安全 |
+| UPSERT | 同实例内 `INSERT ... ON DUPLICATE KEY UPDATE` / `ON CONFLICT DO UPDATE`，按维度更新 | 大表增量刷新，避免全表重写 |
+
+- 定时：`refreshMinutes > 0` 时由内置调度器每 60 秒扫描 `next_run_time` 到期执行，运行记录写 `mig_agg_run`（MANUAL/SCHEDULED）；
+- 失败：记录失败原因，定时任务 1 分钟后自动重试下一次；页面可查最近 20 次记录；
+- 生成 UPSERT 时会自动创建维度唯一索引（已存在/维度重复则跳过并提示）。
+
+**接口**
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET/POST | `/api/v1/migration/agg` | migration:agg:view/create | 列表/新建 |
+| GET/PUT/DELETE | `/api/v1/migration/agg/{id}` | view/edit | 详情/编辑/删除 |
+| POST | `/api/v1/migration/agg/{id}/preview` | view | 预览视图 SQL 与目标 DDL |
+| POST | `/api/v1/migration/agg/{id}/build` | edit | 生成视图+目标表+迁移项目 |
+| POST | `/api/v1/migration/agg/{id}/refresh` | exec | 立即刷新（FULL/UPSERT） |
+| GET | `/api/v1/migration/agg/{id}/runs` | view | 刷新记录 |
+| POST | `/api/v1/migration/agg/{id}/enable` | edit | 启停定时刷新 |
+
+**实测（本地 MySQL，ods_order 24000 行按客户聚合）**
+
+| 项 | 结果 |
+|---|---|
+| 聚合结果 | 5905 个客户；目标合计 1,964,257,582.00 与源一致 |
+| FULL 刷新 | 5905 行，耗时秒级；对账通过 |
+| UPSERT 刷新 | 连续两次均 5905 行，目标行数稳定（无重复） |
+| 跨库到 PG | 汇总表建在远端 PostgreSQL，刷新 5905 行、合计一致 |
+| 定时 | 调度器实际执行（SCHEDULED，5905 行） |
+
+> 页面入口：数据集成 → 聚合汇总。

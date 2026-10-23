@@ -3,6 +3,7 @@ package com.dgp.admin;
 import com.dgp.common.Db;
 import com.dgp.integration.IntegrationService;
 import com.dgp.metadata.service.MetaCollectService;
+import com.dgp.migration.AggregationService;
 import com.dgp.quality.service.QualityEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,13 +28,15 @@ public class Scheduler {
     private final IntegrationService integrationService;
     private final QualityEngine qualityEngine;
     private final MetaCollectService metaCollectService;
+    private final AggregationService aggregationService;
 
     public Scheduler(Db db, IntegrationService integrationService, QualityEngine qualityEngine,
-                     MetaCollectService metaCollectService) {
+                     MetaCollectService metaCollectService, AggregationService aggregationService) {
         this.db = db;
         this.integrationService = integrationService;
         this.qualityEngine = qualityEngine;
         this.metaCollectService = metaCollectService;
+        this.aggregationService = aggregationService;
     }
 
     private boolean notReady() {
@@ -41,6 +44,18 @@ public class Scheduler {
             return db.count("SELECT COUNT(*) FROM sys_user") == 0;
         } catch (Exception e) {
             return true;
+        }
+    }
+
+    /** 聚合汇总定时刷新：每分钟扫描到期的汇总定义（同实例互斥由单实例部署保证，双实例将加分布式锁）。 */
+    @Scheduled(fixedDelay = 60000, initialDelay = 75000)
+    public void refreshAggregations() {
+        if (notReady()) return;
+        try {
+            int n = aggregationService.refreshDue();
+            if (n > 0) log.info("聚合汇总定时刷新完成 {} 个", n);
+        } catch (Exception e) {
+            log.warn("聚合汇总定时刷新异常: {}", e.getMessage());
         }
     }
 

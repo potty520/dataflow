@@ -30,6 +30,7 @@ const routes = [
       { path: 'service', component: () => import('@/views/Service.vue'), meta: { title: '数据服务', perm: 'service:api:view' } },
       { path: 'migration', component: () => import('@/views/Migration.vue'), meta: { title: '数据迁移', perm: 'migration:project:view' } },
       { path: 'migration/tools', component: () => import('@/views/MigrationTools.vue'), meta: { title: '远程与文件迁移', perm: 'migration:file:view' } },
+      { path: 'migration/agg', component: () => import('@/views/Aggregation.vue'), meta: { title: '聚合汇总', perm: 'migration:agg:view' } },
       { path: 'industry', component: () => import('@/views/Industry.vue'), meta: { title: '行业适配', perm: 'industry:package:view' } },
       { path: 'admin', component: () => import('@/views/Admin.vue'), meta: { title: '系统管理', perm: 'sys:config:view' } }
     ]
