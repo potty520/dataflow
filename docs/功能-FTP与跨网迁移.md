@@ -169,3 +169,27 @@ $env:DGP_SOCKS5_HOST="127.0.0.1"; $env:DGP_SOCKS5_PORT="1080"
 2. 文件加密（AES-GCM）与分片断点续传；
 3. 迁移限速、失败重试策略、抽样逐行差异报告；
 4. 代理健康检查与自动重连、连接池复用。
+
+### 3.6 目标端方言与 PostgreSQL 迁移（v1.4.3）
+
+跨库迁移的目标端支持 **MySQL / PostgreSQL**，一键建表时会按目标数据源方言生成 DDL：
+
+| 逻辑类型 | MySQL | PostgreSQL |
+|---|---|---|
+| 字符串 | `VARCHAR(255)` | `VARCHAR(255)` |
+| 整数 | `BIGINT` | `BIGINT` |
+| 数值 | `DECIMAL(18,2)` | `NUMERIC(18,2)` |
+| 时间 | `DATETIME` | `TIMESTAMP` |
+| 布尔 | `TINYINT` | `BOOLEAN` |
+
+**实测（本地 MySQL → 远端 PostgreSQL 14.24，4C8G 测试机）**：
+
+| 场景 | 结果 |
+|---|---|
+| 连接测试 | ok，1.9s，版本 14.24 |
+| 全量迁移 ods_order（13 字段） | 24,000 行写入；PG 列类型 `varchar/numeric/bigint/timestamp` 正确 |
+| 对账 | ROW_COUNT 24000=24000、PK_DUP 0、SUM 1,964,257,582 一致、NULL_RATE 0 → **4/4 PASS** |
+| 增量迁移（水位 order_time，batchSize 5000） | 首次 5 批写入 24000 行；二次执行 0 行（断点续传生效） |
+| 批次回滚 | 删除 24000 行，PG 行数归 0；重跑恢复 24000 行 |
+
+> 回滚时水位字符串参数会按目标库要求转成时间类型（PostgreSQL 不接受 `timestamp <= varchar`），MySQL 同样兼容。

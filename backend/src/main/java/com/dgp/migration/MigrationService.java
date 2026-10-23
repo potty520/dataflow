@@ -194,30 +194,41 @@ public class MigrationService {
     }
 
     /** 目标端建表语句建议（目标表不存在时使用）。 */
-    private String suggestDdl(String targetTable, List<Map<String, Object>> mappings) {
+    private String suggestDdl(String targetTable, List<Map<String, Object>> mappings, String dialect) {
         StringBuilder sb = new StringBuilder("CREATE TABLE IF NOT EXISTS ").append(Db.identifier(targetTable)).append(" (");
         List<String> cols = new ArrayList<>();
         for (Map<String, Object> m : mappings) {
             String c = Db.identifier(String.valueOf(m.get("targetColumn")));
             String type = ddlType(String.valueOf(m.getOrDefault("targetType", "")),
-                    String.valueOf(m.getOrDefault("sourceType", "")));
+                    String.valueOf(m.getOrDefault("sourceType", "")), dialect);
             cols.add(c + " " + type);
         }
         sb.append(String.join(", ", cols)).append(")");
         return sb.toString();
     }
 
-    private static String ddlType(String targetType, String sourceType) {
+    private static String ddlType(String targetType, String sourceType, String dialect) {
         String t = (targetType == null || targetType.isBlank()) ? sourceType : targetType;
         String f = family(t == null ? "" : t.toLowerCase(Locale.ROOT));
+        boolean pg = "POSTGRESQL".equalsIgnoreCase(dialect);
         return switch (f) {
             case "str" -> "VARCHAR(255)";
             case "int" -> "BIGINT";
-            case "num" -> "DECIMAL(18,2)";
-            case "time" -> "DATETIME";
-            case "bool" -> "TINYINT";
+            case "num" -> pg ? "NUMERIC(18,2)" : "DECIMAL(18,2)";
+            case "time" -> pg ? "TIMESTAMP" : "DATETIME";
+            case "bool" -> pg ? "BOOLEAN" : "TINYINT";
             default -> "VARCHAR(255)";
         };
+    }
+
+    /** 目标端方言：目标是远程数据源时取其 db_type，否则按本库 MySQL。 */
+    private String targetDialect(Map<String, Object> project) {
+        long dsId = Db.longVal(project.get("targetDsId"), 0L);
+        if (dsId > 0) {
+            String type = Db.str(db.scalar("SELECT db_type FROM mig_datasource WHERE id=?", dsId));
+            if (type != null && !type.isBlank()) return type.toUpperCase(Locale.ROOT);
+        }
+        return "MYSQL";
     }
 
     // ------------------------------------------------------------ 映射维护
@@ -275,7 +286,7 @@ public class MigrationService {
             }
         }
         List<Map<String, Object>> sample = new ArrayList<>();
-        String ddl = targetExists ? "" : suggestDdl(target, mappings);
+        String ddl = targetExists ? "" : suggestDdl(target, mappings, targetDialect(p));
         try {
             if (CrossMigrationService.needsCross(p)) {
                 sample = cross.sample(p, mappings, 3);
@@ -542,7 +553,7 @@ public class MigrationService {
         List<Map<String, Object>> mappings = db.list(
                 "SELECT * FROM mig_mapping WHERE project_id=? ORDER BY sort_no,id", projectId);
         if (mappings.isEmpty()) throw new BizException(ErrorCode.PARAM_INVALID, "尚未配置字段映射");
-        String ddl = suggestDdl(target, mappings);
+        String ddl = suggestDdl(target, mappings, targetDialect(p));
         try {
             if (isCross) {
                 // 跨库：DDL 在目标数据源执行（本地库建不出来）

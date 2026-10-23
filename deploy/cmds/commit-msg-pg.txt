@@ -1,0 +1,15 @@
+fix(migration): 建表 DDL 按目标库方言生成 + 跨库回滚时间参数归一化（MySQL→PostgreSQL 实测）
+
+- suggestDdl/ddlType 增加目标方言参数：目标是远程数据源时取 mig_datasource.db_type，
+  PostgreSQL 生成 NUMERIC(18,2)/TIMESTAMP/BOOLEAN，MySQL 保持 DECIMAL/DATETIME/TINYINT
+  （修复此前 MySQL→PG 建表报 DATETIME/TINYINT 不存在）
+- 跨库回滚 deleteWhere 对水位字符串参数做 Timestamp 归一化
+  （PostgreSQL 不接受 timestamp <= character varying，MySQL 同样兼容）
+- 文档 docs/功能-FTP与跨网迁移.md 增加“目标端方言与 PostgreSQL 迁移”章节
+
+实测（本地 MySQL → 远端 PostgreSQL 14.24）：
+- 全量 ods_order 13 字段：24000 行写入；PG 列类型 varchar/numeric/bigint/timestamp 正确；
+  对账 ROW_COUNT/PK_DUP/SUM/NULL_RATE 4/4 PASS
+- 增量（水位 order_time，batchSize 5000）：首次 5 批 24000 行，二次执行 0 行（断点续传）；
+  批次回滚删除 24000 行（PG 归 0），重跑恢复 24000 行
+- 回归：flows_migration_v14 29/29、flows_features 55/55、flows_ext 70/70、verify 73/73 全通过

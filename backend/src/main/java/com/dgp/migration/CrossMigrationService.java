@@ -449,9 +449,26 @@ public class CrossMigrationService {
     private long deleteWhere(Connection tc, String target, String cond, Object val) throws Exception {
         String sql = "DELETE FROM " + target + (cond == null ? "" : " WHERE " + cond);
         try (PreparedStatement ps = tc.prepareStatement(sql)) {
-            if (cond != null) ps.setObject(1, val);
+            if (cond != null) ps.setObject(1, normalizeParam(val));
             return ps.executeUpdate();
         }
+    }
+
+    /** 水位字符串 → Timestamp：MySQL 能隐式比较，PostgreSQL 需要时间类型参数。 */
+    private static Object normalizeParam(Object v) {
+        if (!(v instanceof String s)) return v;
+        String str = s.trim();
+        try {
+            if (str.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}(\\.\\d+)?")) {
+                return java.sql.Timestamp.valueOf(str);
+            }
+            if (str.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?")) {
+                return java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(str));
+            }
+        } catch (Exception ignore) {
+            // 非时间格式保持原样
+        }
+        return v;
     }
 
     private String valueExpr(Map<String, Object> m) {
