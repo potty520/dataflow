@@ -227,6 +227,10 @@ public class ServiceController {
                         + "VALUES(?,?,?,?,?,'ENABLED',?,?)",
                 AuthContext.tenantId(), appCode, b.get("appName"), secret, b.get("owner"),
                 b.getOrDefault("quotaDay", 10000), LocalDateTime.now());
+        // 同步配额记录：否则调用计数（used_today）与配额校验不生效
+        db.insert("INSERT INTO svc_quota(tenant_id,app_code,quota_day,used_today,qps_limit) VALUES(?,?,?,0,?)",
+                AuthContext.tenantId(), appCode, b.getOrDefault("quotaDay", 10000),
+                b.getOrDefault("qpsLimit", 100));
         // 一次性返回明文密钥（之后任何接口都不再回显）
         return Result.ok(M.of("id", id, "appCode", appCode, "appSecret", secret,
                 "note", "请立即保存，服务端不再提供明文查询"));

@@ -123,7 +123,12 @@ public class ServiceExecutionService {
         }
         if (!dryRun) {
             log(api, appCode, ip, 200, cost, null, rows.size());
-            db.update("UPDATE svc_quota SET used_today=used_today+1 WHERE app_code=?", appCode);
+            int quotaRows = db.update("UPDATE svc_quota SET used_today=used_today+1 WHERE app_code=?", appCode);
+            if (quotaRows == 0 && appCode != null && !"-".equals(appCode) && !"ORCH".equals(appCode)) {
+                // 历史应用可能没有配额记录，补建后再计数
+                db.insert("INSERT INTO svc_quota(tenant_id,app_code,quota_day,used_today,qps_limit) VALUES(1,?,10000,1,100)",
+                        appCode);
+            }
             db.update("UPDATE svc_api SET call_count=call_count+1 WHERE id=?", api.get("id"));
         }
         Map<String, Object> out = new LinkedHashMap<>();
