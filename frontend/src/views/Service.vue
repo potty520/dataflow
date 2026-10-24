@@ -59,13 +59,27 @@
 
     <div class="grid grid-2" style="margin-top:12px">
       <div class="card">
-        <div class="card-head"><h3>接入应用与配额</h3></div>
+        <div class="card-head"><h3>接入应用与配额</h3>
+          <div><el-button size="small" type="primary" @click="openApp()">新建应用</el-button></div>
+        </div>
         <el-table :data="apps" size="small" max-height="240">
           <el-table-column prop="appCode" label="应用编码" width="120"><template #default="{ row }"><span class="mono">{{ row.appCode }}</span></template></el-table-column>
           <el-table-column prop="appName" label="应用名称" min-width="150" />
           <el-table-column prop="quotaDay" label="日配额" width="90" align="right" />
           <el-table-column prop="owner" label="负责人" width="110" />
-          <el-table-column prop="status" label="状态" width="80" />
+          <el-table-column prop="status" label="状态" width="80">
+            <template #default="{ row }"><el-tag size="small" :type="row.status === 'ENABLED' ? 'success' : 'info'">{{ row.status === 'ENABLED' ? '启用' : '停用' }}</el-tag></template>
+          </el-table-column>
+          <el-table-column prop="usedToday" label="今日调用" width="90" align="right" />
+          <el-table-column prop="appSecretMasked" label="密钥" width="130"><template #default="{ row }"><span class="mono">{{ row.appSecretMasked }}</span></template></el-table-column>
+          <el-table-column label="操作" width="230" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openApp(row)">编辑</el-button>
+              <el-button link type="warning" size="small" @click="resetSecretApp(row)">重置密钥</el-button>
+              <el-button link type="warning" size="small" @click="toggleApp(row)">{{ row.status === 'ENABLED' ? '停用' : '启用' }}</el-button>
+              <el-button link type="danger" size="small" @click="removeApp(row)">删除</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
       <div class="card">
@@ -121,6 +135,31 @@
         <el-button size="small" type="primary" @click="create">保存为草稿</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="appDialog" :title="appForm.id ? '编辑应用' : '新建应用'" width="520px">
+      <el-form label-width="100px" size="small">
+        <el-form-item label="应用编码"><el-input v-model="appForm.appCode" :disabled="!!appForm.id" placeholder="如 DEMO_APP" /></el-form-item>
+        <el-form-item label="应用名称"><el-input v-model="appForm.appName" /></el-form-item>
+        <el-form-item label="负责人"><el-input v-model="appForm.owner" /></el-form-item>
+        <el-form-item label="日配额"><el-input-number v-model="appForm.quotaDay" :min="0" :max="100000000" /></el-form-item>
+        <el-form-item v-if="appForm.id" label="状态">
+          <el-radio-group v-model="appForm.status"><el-radio label="ENABLED">启用</el-radio><el-radio label="DISABLED">停用</el-radio></el-radio-group>
+        </el-form-item>
+      </el-form>
+      <el-alert :closable="false" type="warning" show-icon title="AppSecret 仅在创建/重置时显示一次，请立即保存" />
+      <template #footer>
+        <el-button size="small" @click="appDialog = false">取消</el-button>
+        <el-button size="small" type="primary" :loading="savingApp" @click="saveApp">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="secretDialog" title="AppSecret（仅显示一次）" width="560px">
+      <el-alert :closable="false" type="error" show-icon title="关闭后无法再次查看，只能重置；请立即复制保存" />
+      <el-input v-model="secretValue" readonly class="mono" style="margin-top:12px">
+        <template #append><el-button @click="copySecret">复制</el-button></template>
+      </el-input>
+      <template #footer><el-button size="small" type="primary" @click="secretDialog = false">我已保存</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
@@ -173,6 +212,62 @@ const trendOption = computed(() => {
     ]
   }
 })
+
+
+const appDialog = ref(false)
+const secretDialog = ref(false)
+const secretValue = ref('')
+const savingApp = ref(false)
+const appForm = reactive({ id: null, appCode: '', appName: '', owner: '', quotaDay: 10000, status: 'ENABLED' })
+
+const openApp = (row) => {
+  Object.assign(appForm, { id: null, appCode: '', appName: '', owner: '', quotaDay: 10000, status: 'ENABLED' })
+  if (row) Object.assign(appForm, { id: row.id, appCode: row.appCode, appName: row.appName, owner: row.owner, quotaDay: row.quotaDay || 10000, status: row.status || 'ENABLED' })
+  appDialog.value = true
+}
+const saveApp = async () => {
+  savingApp.value = true
+  try {
+    if (appForm.id) {
+      await serviceApi.updateApp(appForm.id, { appName: appForm.appName, owner: appForm.owner, quotaDay: appForm.quotaDay, status: appForm.status })
+      ElMessage.success('应用已更新')
+    } else {
+      const d = await serviceApi.createApp({ appCode: appForm.appCode, appName: appForm.appName, owner: appForm.owner, quotaDay: appForm.quotaDay })
+      secretValue.value = d.appSecret
+      secretDialog.value = true
+      ElMessage.success('应用已创建')
+    }
+    appDialog.value = false
+    load()
+  } catch (e) { /* http 层已提示 */ } finally { savingApp.value = false }
+}
+const resetSecretApp = async (row) => {
+  try {
+    await ElMessageBox.confirm('重置 ' + row.appCode + ' 的密钥？旧密钥立即失效', '提示', { type: 'warning' })
+    const d = await serviceApi.resetAppSecret(row.id)
+    secretValue.value = d.appSecret
+    secretDialog.value = true
+    load()
+  } catch (e) { /* 取消 */ }
+}
+const toggleApp = async (row) => {
+  try {
+    await serviceApi.updateApp(row.id, { status: row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED' })
+    ElMessage.success(row.status === 'ENABLED' ? '已停用' : '已启用')
+    load()
+  } catch (e) { /* http 层已提示 */ }
+}
+const removeApp = async (row) => {
+  try {
+    await ElMessageBox.confirm('删除应用 ' + row.appCode + '？', '提示', { type: 'warning' })
+    await serviceApi.deleteApp(row.id)
+    ElMessage.success('已删除')
+    load()
+  } catch (e) { /* 取消 */ }
+}
+const copySecret = async () => {
+  try { await navigator.clipboard.writeText(secretValue.value); ElMessage.success('已复制') } catch (e) { ElMessage.warning('浏览器不允许剪贴板，请手动选择复制') }
+}
 
 const load = async () => {
   // 1) 主列表先落地，KPI/图表/附属清单全部旁路加载，单个 403/5xx 不阻塞页面

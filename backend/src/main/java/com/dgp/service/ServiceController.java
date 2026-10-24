@@ -198,13 +198,51 @@ public class ServiceController {
     @GetMapping("/apps")
     @RequirePerm("service:app:view")
     public Result<Object> apps() {
-        List<Map<String, Object>> list = db.list("SELECT * FROM svc_app ORDER BY id");
+        List<Map<String, Object>> list = db.list(
+                "SELECT a.*, q.used_today, q.qps_limit FROM svc_app a "
+                        + "LEFT JOIN svc_quota q ON q.app_code=a.app_code ORDER BY a.id");
         for (Map<String, Object> a : list) {
             Object secret = a.get("appSecret");
             a.remove("appSecret");
             a.put("appSecretMasked", secret == null ? null : maskSecret(String.valueOf(secret)));
         }
         return Result.ok(M.of("records", list));
+    }
+
+    /** 编辑应用：名称/负责人/状态/日配额（停用后开放通道立即拒绝该应用）。 */
+    @PutMapping("/apps/{id}")
+    @RequirePerm("service:app:edit")
+    public Result<Object> updateApp(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        Map<String, Object> app = db.one("SELECT * FROM svc_app WHERE id=?", id);
+        if (app == null) throw new BizException(ErrorCode.NOT_FOUND);
+        String status = b.get("status") == null ? String.valueOf(app.get("status")) : String.valueOf(b.get("status"));
+        if (!"ENABLED".equals(status) && !"DISABLED".equals(status)) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "状态只能是 ENABLED / DISABLED");
+        }
+        db.update("UPDATE svc_app SET app_name=?,owner=?,status=?,quota_day=? WHERE id=?",
+                b.containsKey("appName") ? b.get("appName") : app.get("appName"),
+                b.containsKey("owner") ? b.get("owner") : app.get("owner"),
+                status,
+                b.containsKey("quotaDay") ? b.get("quotaDay") : app.get("quotaDay"), id);
+        if (b.containsKey("quotaDay")) {
+            db.update("UPDATE svc_quota SET quota_day=? WHERE app_code=?", b.get("quotaDay"), app.get("appCode"));
+        }
+        return Result.ok(M.of("id", id, "status", status));
+    }
+
+    /** 删除应用：仍被未下线 API 绑定时禁止删除，避免开放通道悬空。 */
+    @DeleteMapping("/apps/{id}")
+    @RequirePerm("service:app:edit")
+    public Result<Object> deleteApp(@PathVariable long id) {
+        Map<String, Object> app = db.one("SELECT * FROM svc_app WHERE id=?", id);
+        if (app == null) throw new BizException(ErrorCode.NOT_FOUND);
+        long bound = db.count("SELECT COUNT(*) FROM svc_api WHERE app_code=? AND status<>'OFFLINE'", app.get("appCode"));
+        if (bound > 0) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "该应用仍被 " + bound + " 个未下线 API 绑定，请先下线或改绑");
+        }
+        db.update("DELETE FROM svc_app WHERE id=?", id);
+        db.update("DELETE FROM svc_quota WHERE app_code=?", app.get("appCode"));
+        return Result.ok(M.of("deleted", true));
     }
 
     private static String maskSecret(String s) {

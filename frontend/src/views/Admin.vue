@@ -55,6 +55,11 @@
       </el-tab-pane>
 
       <el-tab-pane label="用户与角色" name="user">
+        <div class="toolbar" style="margin-bottom:8px">
+          <el-button size="small" type="primary" @click="openUser()">新建用户</el-button>
+          <el-button size="small" @click="openRole()">新建角色</el-button>
+          <span class="hint" style="margin-left:8px">用户绑定角色；角色权限按接口权限点勾选，保存后立即生效</span>
+        </div>
         <div class="grid grid-2">
           <div>
             <div class="section-title">用户（{{ users.length }}）</div>
@@ -64,6 +69,13 @@
               <el-table-column prop="roleName" label="角色" min-width="140" />
               <el-table-column prop="dept" label="部门" min-width="110" />
               <el-table-column prop="status" label="状态" width="80" />
+              <el-table-column label="操作" width="190" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click="openUser(row)">编辑</el-button>
+                  <el-button link type="warning" size="small" @click="resetUserPwd(row)">重置密码</el-button>
+                  <el-button v-if="row.username !== 'admin'" link type="danger" size="small" @click="removeUser(row)">删除</el-button>
+                </template>
+              </el-table-column>
             </el-table>
           </div>
           <div>
@@ -72,7 +84,12 @@
               <el-table-column prop="code" label="角色编码" width="190"><template #default="{ row }"><span class="mono">{{ row.code }}</span></template></el-table-column>
               <el-table-column prop="name" label="名称" width="140" />
               <el-table-column prop="userCount" label="用户数" width="80" align="right" />
-              <el-table-column prop="description" label="职责" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="description" label="职责" min-width="200" show-overflow-tooltip />
+              <el-table-column label="操作" width="100" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" :disabled="row.code === 'ROLE_GOV_ADMIN'" @click="openPerms(row)">权限</el-button>
+                </template>
+              </el-table-column>
             </el-table>
           </div>
         </div>
@@ -102,12 +119,63 @@
         <el-button size="small" type="primary" @click="saveConfig">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="userDialog" :title="userForm.id ? '编辑用户' : '新建用户'" width="520px">
+      <el-form label-width="90px" size="small">
+        <el-form-item label="账号"><el-input v-model="userForm.username" :disabled="!!userForm.id" placeholder="字母/数字/下划线" /></el-form-item>
+        <el-form-item label="姓名"><el-input v-model="userForm.realName" /></el-form-item>
+        <el-form-item v-if="!userForm.id" label="初始口令"><el-input v-model="userForm.password" type="password" show-password placeholder="至少 8 位，含字母和数字" /></el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="userForm.roleCode" style="width:100%">
+            <el-option v-for="r in roles" :key="r.code" :label="r.name + '（' + r.code + '）'" :value="r.code" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="部门"><el-input v-model="userForm.dept" /></el-form-item>
+        <el-form-item label="邮箱"><el-input v-model="userForm.email" /></el-form-item>
+        <el-form-item v-if="userForm.id" label="状态">
+          <el-radio-group v-model="userForm.status"><el-radio label="启用">启用</el-radio><el-radio label="停用">停用</el-radio></el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button size="small" @click="userDialog = false">取消</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="saveUser">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="roleDialog" title="新建角色" width="480px">
+      <el-form label-width="90px" size="small">
+        <el-form-item label="角色编码"><el-input v-model="roleForm.code" placeholder="如 ROLE_DATA_STEWARD" /></el-form-item>
+        <el-form-item label="角色名称"><el-input v-model="roleForm.name" /></el-form-item>
+        <el-form-item label="职责说明"><el-input v-model="roleForm.description" type="textarea" :rows="3" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button size="small" @click="roleDialog = false">取消</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="saveRole">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="permDialog" :title="'角色权限 · ' + permRole.name" width="640px">
+      <el-alert :closable="false" type="info" show-icon title="勾选后保存立即生效；平台管理员角色（ROLE_GOV_ADMIN）不可修改" />
+      <el-input v-model="permKeyword" size="small" placeholder="筛选权限编码" style="margin:8px 0" clearable />
+      <div style="max-height:380px;overflow:auto;border:1px solid #e4e7ed;border-radius:4px;padding:8px">
+        <el-checkbox-group v-model="permSelected">
+          <div v-for="p in filteredPerms" :key="p" style="display:inline-block;width:48%;margin:2px 0">
+            <el-checkbox :label="p"><span class="mono" style="font-size:12px">{{ p }}</span></el-checkbox>
+          </div>
+        </el-checkbox-group>
+      </div>
+      <div class="hint" style="margin-top:6px">已选 {{ permSelected.length }} 项 / 可选 {{ permOptions.length }} 项</div>
+      <template #footer>
+        <el-button size="small" @click="permDialog = false">取消</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="savePerms">保存权限</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, authApi } from '@/api'
 
 const tab = ref('health')
@@ -162,6 +230,88 @@ const saveConfig = async () => {
   } catch (e) {
     /* http 层已提示 */
   }
+}
+
+
+const userDialog = ref(false)
+const roleDialog = ref(false)
+const permDialog = ref(false)
+const saving = ref(false)
+const userForm = reactive({ id: null, username: '', realName: '', password: '', roleCode: '', dept: '', email: '', status: '启用' })
+const roleForm = reactive({ code: '', name: '', description: '' })
+const permRole = ref({})
+const permSelected = ref([])
+const permKeyword = ref('')
+const permOptions = computed(() => {
+  const set = new Set()
+  apis.value.forEach((a) => { if (a.perm && a.perm !== '-') set.add(a.perm) })
+  return Array.from(set).sort()
+})
+const filteredPerms = computed(() => {
+  const k = permKeyword.value.trim().toLowerCase()
+  return k ? permOptions.value.filter((p) => p.toLowerCase().includes(k)) : permOptions.value
+})
+
+const openUser = (row) => {
+  Object.assign(userForm, { id: null, username: '', realName: '', password: '', roleCode: roles.value[0]?.code || '', dept: '', email: '', status: '启用' })
+  if (row) {
+    Object.assign(userForm, { id: row.id, username: row.username, realName: row.realName, roleCode: row.roleCode, dept: row.dept, email: row.email, status: row.status })
+  }
+  userDialog.value = true
+}
+const saveUser = async () => {
+  saving.value = true
+  try {
+    if (userForm.id) {
+      await authApi.updateUser(userForm.id, { realName: userForm.realName, roleCode: userForm.roleCode, dept: userForm.dept, email: userForm.email, status: userForm.status })
+      ElMessage.success('用户已更新')
+    } else {
+      await authApi.createUser({ username: userForm.username, password: userForm.password, realName: userForm.realName, roleCode: userForm.roleCode, dept: userForm.dept, email: userForm.email })
+      ElMessage.success('用户已创建')
+    }
+    userDialog.value = false
+    load()
+  } catch (e) { /* http 层已提示 */ } finally { saving.value = false }
+}
+const resetUserPwd = async (row) => {
+  try {
+    const { value } = await ElMessageBox.prompt('输入 ' + row.username + ' 的新口令（至少 8 位，含字母和数字）', '重置密码', { inputType: 'password', inputPattern: /^.{8,}$/, inputErrorMessage: '至少 8 位' })
+    await authApi.resetPassword(row.id, { password: value })
+    ElMessage.success('密码已重置')
+  } catch (e) { /* 取消 */ }
+}
+const removeUser = async (row) => {
+  try {
+    await ElMessageBox.confirm('删除用户 ' + row.username + '？该操作不可恢复', '提示', { type: 'warning' })
+    await authApi.deleteUser(row.id)
+    ElMessage.success('已删除')
+    load()
+  } catch (e) { /* 取消 */ }
+}
+const openRole = () => { Object.assign(roleForm, { code: '', name: '', description: '' }); roleDialog.value = true }
+const saveRole = async () => {
+  saving.value = true
+  try {
+    await authApi.createRole({ ...roleForm })
+    ElMessage.success('角色已创建，请继续分配权限')
+    roleDialog.value = false
+    load()
+  } catch (e) { /* http 层已提示 */ } finally { saving.value = false }
+}
+const openPerms = (row) => {
+  permRole.value = row
+  permSelected.value = String(row.perms || '').split(',').map((s) => s.trim()).filter(Boolean)
+  permKeyword.value = ''
+  permDialog.value = true
+}
+const savePerms = async () => {
+  saving.value = true
+  try {
+    await authApi.grantRolePerms(permRole.value.id, permSelected.value)
+    ElMessage.success('权限已保存')
+    permDialog.value = false
+    load()
+  } catch (e) { /* http 层已提示 */ } finally { saving.value = false }
 }
 
 onMounted(load)
