@@ -305,6 +305,27 @@ public class AuthController {
         return Result.ok(M.of("id", id));
     }
 
+    @DeleteMapping("/roles/{id}")
+    @RequirePerm("auth:role:create")
+    public Result<Object> deleteRole(@PathVariable long id) {
+        authService.invalidateCaches();
+        requireAdmin();
+        Map<String, Object> role = db.one("SELECT * FROM sys_role WHERE id=?", id);
+        if (role == null) throw new BizException(ErrorCode.NOT_FOUND, "角色不存在");
+        String code = String.valueOf(role.get("code"));
+        if (List.of("ROLE_GOV_ADMIN", "ROLE_DATA_DEV", "ROLE_QUALITY", "ROLE_ANALYST",
+                "ROLE_SEC_ADMIN", "ROLE_INDUSTRY_CONSULTANT").contains(code)) {
+            throw new BizException(ErrorCode.FORBIDDEN, "内置角色不可删除");
+        }
+        long users = db.count("SELECT COUNT(*) FROM sys_user WHERE role_code=?", code);
+        if (users > 0) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "该角色下还有 " + users + " 个用户，请先调整用户角色");
+        }
+        db.update("DELETE FROM sys_role WHERE id=?", id);
+        audit.record(me().getUsername(), "ROLE_DELETE", "auth", code, null, "-", "SUCCESS");
+        return Result.ok(M.of("deleted", true));
+    }
+
     @PostMapping("/roles/{id}/permissions")
     @RequirePerm("auth:role:grant")
     public Result<Object> grant(@PathVariable long id, @RequestBody Map<String, Object> body) {

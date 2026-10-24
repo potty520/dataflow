@@ -85,10 +85,13 @@
               <el-table-column prop="name" label="名称" width="140" />
               <el-table-column prop="userCount" label="用户数" width="80" align="right" />
               <el-table-column prop="description" label="职责" min-width="200" show-overflow-tooltip />
-              <el-table-column label="操作" width="100" fixed="right">
+              <el-table-column label="操作" width="170" fixed="right">
                 <template #default="{ row }">
-                  <el-button link type="primary" size="small" :disabled="row.code === 'ROLE_GOV_ADMIN'" @click="openRole(row)">编辑</el-button>
-                  <el-button link type="primary" size="small" :disabled="row.code === 'ROLE_GOV_ADMIN'" @click="openPerms(row)">权限</el-button>
+                  <el-button link type="primary" size="small" :disabled="isBuiltinRole(row.code)" @click="openRole(row)">编辑</el-button>
+                  <el-button link type="primary" size="small" :disabled="isBuiltinRole(row.code)" @click="openPerms(row)">权限</el-button>
+                  <el-button link type="danger" size="small" :disabled="isBuiltinRole(row.code) || row.userCount > 0"
+                             :title="isBuiltinRole(row.code) ? '内置角色不可删除' : (row.userCount > 0 ? '该角色下还有用户，请先调整用户角色' : '')"
+                             @click="removeRole(row)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -288,6 +291,16 @@ const removeUser = async (row) => {
     ElMessage.success('已删除')
     load()
   } catch (e) { /* 取消 */ }
+}
+const BUILTIN_ROLES = ['ROLE_GOV_ADMIN', 'ROLE_DATA_DEV', 'ROLE_QUALITY', 'ROLE_ANALYST', 'ROLE_SEC_ADMIN', 'ROLE_INDUSTRY_CONSULTANT']
+const isBuiltinRole = (code) => BUILTIN_ROLES.includes(code)
+const removeRole = async (row) => {
+  try {
+    await ElMessageBox.confirm('删除角色 ' + row.name + '（' + row.code + '）？删除后不可恢复', '提示', { type: 'warning' })
+    await authApi.deleteRole(row.id)
+    ElMessage.success('角色已删除')
+    load()
+  } catch (e) { /* 取消或后端提示 */ }
 }
 const openRole = (row) => {
   Object.assign(roleForm, { id: null, code: '', name: '', description: '' })
