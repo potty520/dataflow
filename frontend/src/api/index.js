@@ -17,6 +17,7 @@ export const authApi = {
   assignRole: (id, roleCode) => http.post(`/api/v1/auth/users/${id}/roles`, { roleCode }),
   resetPassword: (id, password) => http.put(`/api/v1/auth/users/${id}/password`, { password }),
   createRole: (data) => http.post('/api/v1/auth/roles', data),
+  updateRole: (id, data) => http.put(`/api/v1/auth/roles/${id}`, data),
   grantRolePerms: (id, perms) => http.post(`/api/v1/auth/roles/${id}/permissions`, { perms }),
   tenants: () => http.get('/api/v1/auth/tenants/tree'),
   dataScopes: () => http.get('/api/v1/auth/data-scopes'),

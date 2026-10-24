@@ -287,6 +287,24 @@ public class AuthController {
         return Result.ok(M.of("id", id));
     }
 
+    @PutMapping("/roles/{id}")
+    @RequirePerm("auth:role:create")
+    public Result<Object> updateRole(@PathVariable long id, @RequestBody Map<String, Object> body) {
+        authService.invalidateCaches();
+        requireAdmin();
+        Map<String, Object> role = db.one("SELECT * FROM sys_role WHERE id=?", id);
+        if (role == null) throw new BizException(ErrorCode.NOT_FOUND, "角色不存在");
+        if ("ROLE_GOV_ADMIN".equals(String.valueOf(role.get("code")))) {
+            throw new BizException(ErrorCode.FORBIDDEN, "内置管理员角色不可修改");
+        }
+        db.update("UPDATE sys_role SET name=?,description=? WHERE id=?",
+                body.containsKey("name") ? body.get("name") : role.get("name"),
+                body.containsKey("description") ? body.get("description") : role.get("description"), id);
+        audit.record(me().getUsername(), "ROLE_UPDATE", "auth", String.valueOf(role.get("code")),
+                "name=" + body.get("name"), "-", "SUCCESS");
+        return Result.ok(M.of("id", id));
+    }
+
     @PostMapping("/roles/{id}/permissions")
     @RequirePerm("auth:role:grant")
     public Result<Object> grant(@PathVariable long id, @RequestBody Map<String, Object> body) {

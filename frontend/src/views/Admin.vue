@@ -87,6 +87,7 @@
               <el-table-column prop="description" label="职责" min-width="200" show-overflow-tooltip />
               <el-table-column label="操作" width="100" fixed="right">
                 <template #default="{ row }">
+                  <el-button link type="primary" size="small" :disabled="row.code === 'ROLE_GOV_ADMIN'" @click="openRole(row)">编辑</el-button>
                   <el-button link type="primary" size="small" :disabled="row.code === 'ROLE_GOV_ADMIN'" @click="openPerms(row)">权限</el-button>
                 </template>
               </el-table-column>
@@ -142,15 +143,15 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="roleDialog" title="新建角色" width="480px">
+    <el-dialog v-model="roleDialog" :title="roleForm.id ? '编辑角色' : '新建角色'" width="480px">
       <el-form label-width="90px" size="small">
-        <el-form-item label="角色编码"><el-input v-model="roleForm.code" placeholder="如 ROLE_DATA_STEWARD" /></el-form-item>
+        <el-form-item label="角色编码"><el-input v-model="roleForm.code" :disabled="!!roleForm.id" placeholder="如 ROLE_DATA_STEWARD" /></el-form-item>
         <el-form-item label="角色名称"><el-input v-model="roleForm.name" /></el-form-item>
         <el-form-item label="职责说明"><el-input v-model="roleForm.description" type="textarea" :rows="3" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button size="small" @click="roleDialog = false">取消</el-button>
-        <el-button size="small" type="primary" :loading="saving" @click="saveRole">创建</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="saveRole">{{ roleForm.id ? '保存' : '创建' }}</el-button>
       </template>
     </el-dialog>
 
@@ -238,7 +239,7 @@ const roleDialog = ref(false)
 const permDialog = ref(false)
 const saving = ref(false)
 const userForm = reactive({ id: null, username: '', realName: '', password: '', roleCode: '', dept: '', email: '', status: '启用' })
-const roleForm = reactive({ code: '', name: '', description: '' })
+const roleForm = reactive({ id: null, code: '', name: '', description: '' })
 const permRole = ref({})
 const permSelected = ref([])
 const permKeyword = ref('')
@@ -288,12 +289,21 @@ const removeUser = async (row) => {
     load()
   } catch (e) { /* 取消 */ }
 }
-const openRole = () => { Object.assign(roleForm, { code: '', name: '', description: '' }); roleDialog.value = true }
+const openRole = (row) => {
+  Object.assign(roleForm, { id: null, code: '', name: '', description: '' })
+  if (row) Object.assign(roleForm, { id: row.id, code: row.code, name: row.name, description: row.description })
+  roleDialog.value = true
+}
 const saveRole = async () => {
   saving.value = true
   try {
-    await authApi.createRole({ ...roleForm })
-    ElMessage.success('角色已创建，请继续分配权限')
+    if (roleForm.id) {
+      await authApi.updateRole(roleForm.id, { name: roleForm.name, description: roleForm.description })
+      ElMessage.success('角色已更新')
+    } else {
+      await authApi.createRole({ code: roleForm.code, name: roleForm.name, description: roleForm.description })
+      ElMessage.success('角色已创建，请继续分配权限')
+    }
     roleDialog.value = false
     load()
   } catch (e) { /* http 层已提示 */ } finally { saving.value = false }

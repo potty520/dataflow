@@ -65,13 +65,13 @@
         <el-table :data="apps" size="small" max-height="240">
           <el-table-column prop="appCode" label="应用编码" width="120"><template #default="{ row }"><span class="mono">{{ row.appCode }}</span></template></el-table-column>
           <el-table-column prop="appName" label="应用名称" min-width="150" />
-          <el-table-column prop="quotaDay" label="日配额" width="90" align="right" />
-          <el-table-column prop="owner" label="负责人" width="110" />
           <el-table-column prop="status" label="状态" width="80">
             <template #default="{ row }"><el-tag size="small" :type="row.status === 'ENABLED' ? 'success' : 'info'">{{ row.status === 'ENABLED' ? '启用' : '停用' }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="usedToday" label="今日调用" width="90" align="right" />
           <el-table-column prop="appSecretMasked" label="密钥" width="130"><template #default="{ row }"><span class="mono">{{ row.appSecretMasked }}</span></template></el-table-column>
+          <el-table-column prop="quotaDay" label="日配额" width="90" align="right" />
+          <el-table-column prop="owner" label="负责人" width="110" />
           <el-table-column label="操作" width="230" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" size="small" @click="openApp(row)">编辑</el-button>
