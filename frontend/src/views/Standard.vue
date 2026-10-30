@@ -15,7 +15,7 @@
       <div class="stat"><div class="label">行业来源</div><div class="value">{{ (stats.bySource || []).length }}</div><div class="foot">国标 / 行标 / 企业标准</div></div>
     </div>
 
-    <el-tabs v-model="tab" type="border-card" style="border-radius:8px">
+    <el-tabs v-model="tab" type="border-card" style="border-radius:8px" @tab-change="onTabChange">
       <el-tab-pane label="数据元" name="element">
         <div class="toolbar">
           <el-input v-model="query.keyword" placeholder="编码 / 名称" clearable style="width:200px" @keyup.enter="load" @clear="load" />
@@ -278,6 +278,8 @@ const importText = ref('')
 const saving = ref(false)
 const BASE_TYPES = { DICT: '数据字典', CODESET: '代码集', GLOSSARY: '常用词汇', MODEL_STD: '模型标准' }
 const baseTypeLabel = (t) => BASE_TYPES[t] || t
+
+const onTabChange = (name) => { if (name === 'base') loadBaseGroups() }
 
 const loadBaseGroups = async () => {
   baseLoading.value = true
