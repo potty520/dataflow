@@ -111,18 +111,77 @@ public class AdminController {
         return Result.ok(M.of("configKey", key, "configValue", value));
     }
 
+    /** 操作日志检索：用户名/动作/模块/结果/IP/关键字/时间范围。 */
     @GetMapping("/logs/operation")
     @RequirePerm("sys:log:view")
     public Result<Object> operationLogs(@RequestParam(defaultValue = "1") int pageNum,
-                                        @RequestParam(defaultValue = "20") int pageSize) {
-        return Result.ok(db.page("SELECT * FROM sec_audit_log", "id DESC", pageNum, pageSize).toMap());
+                                        @RequestParam(defaultValue = "20") int pageSize,
+                                        @RequestParam(required = false) String keyword,
+                                        @RequestParam(required = false) String module,
+                                        @RequestParam(required = false) String action,
+                                        @RequestParam(required = false) String result,
+                                        @RequestParam(required = false) String username,
+                                        @RequestParam(required = false) String ip,
+                                        @RequestParam(required = false) String startTime,
+                                        @RequestParam(required = false) String endTime) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM sec_audit_log WHERE 1=1");
+        List<Object> args = new ArrayList<>();
+        if (keyword != null && !keyword.isBlank()) {
+            sql.append(" AND (username LIKE ? OR action LIKE ? OR module LIKE ? OR resource LIKE ? OR detail LIKE ? OR ip LIKE ?)");
+            for (int i = 0; i < 6; i++) args.add("%" + keyword.trim() + "%");
+        }
+        appendEq(sql, args, "module", module);
+        appendEq(sql, args, "action", action);
+        appendEq(sql, args, "result", result);
+        appendLike(sql, args, "username", username);
+        appendLike(sql, args, "ip", ip);
+        appendTime(sql, args, "log_time", startTime, endTime);
+        return Result.ok(db.page(sql.toString(), "id DESC", pageNum, pageSize, args.toArray()).toMap());
     }
 
+    /** 登录日志检索：用户名/状态/IP/时间范围。 */
     @GetMapping("/logs/login")
     @RequirePerm("sys:log:view")
     public Result<Object> loginLogs(@RequestParam(defaultValue = "1") int pageNum,
-                                    @RequestParam(defaultValue = "20") int pageSize) {
-        return Result.ok(db.page("SELECT * FROM sys_login_log", "id DESC", pageNum, pageSize).toMap());
+                                    @RequestParam(defaultValue = "20") int pageSize,
+                                    @RequestParam(required = false) String username,
+                                    @RequestParam(required = false) String status,
+                                    @RequestParam(required = false) String ip,
+                                    @RequestParam(required = false) String startTime,
+                                    @RequestParam(required = false) String endTime) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM sys_login_log WHERE 1=1");
+        List<Object> args = new ArrayList<>();
+        appendLike(sql, args, "username", username);
+        appendEq(sql, args, "status", status);
+        appendLike(sql, args, "ip", ip);
+        appendTime(sql, args, "login_time", startTime, endTime);
+        return Result.ok(db.page(sql.toString(), "id DESC", pageNum, pageSize, args.toArray()).toMap());
+    }
+
+    private static void appendEq(StringBuilder sql, List<Object> args, String col, String val) {
+        if (val != null && !val.isBlank()) { sql.append(" AND ").append(col).append("=?"); args.add(val.trim()); }
+    }
+
+    private static void appendLike(StringBuilder sql, List<Object> args, String col, String val) {
+        if (val != null && !val.isBlank()) { sql.append(" AND ").append(col).append(" LIKE ?"); args.add("%" + val.trim() + "%"); }
+    }
+
+    private static void appendTime(StringBuilder sql, List<Object> args, String col, String start, String end) {
+        try {
+            if (start != null && !start.isBlank()) { sql.append(" AND ").append(col).append(">=?"); args.add(parseLogTime(start, false)); }
+            if (end != null && !end.isBlank()) { sql.append(" AND ").append(col).append("<=?"); args.add(parseLogTime(end, true)); }
+        } catch (Exception ignore) {
+            // 时间格式非法时忽略时间条件，避免 500
+        }
+    }
+
+    private static LocalDateTime parseLogTime(String s, boolean end) {
+        String v = s.trim().replace('T', ' ');
+        if (v.length() == 10) {
+            return end ? java.time.LocalDate.parse(v).atTime(23, 59, 59) : java.time.LocalDate.parse(v).atStartOfDay();
+        }
+        if (v.length() == 16) v = v + ":00";
+        return LocalDateTime.parse(v.replace(' ', 'T'));
     }
 
     /**
