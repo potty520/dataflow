@@ -1,6 +1,7 @@
 package com.dgp.standard;
 
 import com.dgp.common.*;
+import com.dgp.bpm.BpmService;
 import com.dgp.security.AuthContext;
 import com.dgp.security.RequirePerm;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +21,11 @@ import java.util.Map;
 public class StandardController {
 
     private final Db db;
+    private final BpmService bpm;
 
-    public StandardController(Db db) {
+    public StandardController(Db db, BpmService bpm) {
         this.db = db;
+        this.bpm = bpm;
     }
 
     // ================= 分类 =================
@@ -101,6 +104,13 @@ public class StandardController {
     @PostMapping("/elements/{id}/publish")
     @RequirePerm("standard:element:publish")
     public Result<Object> publishElement(@PathVariable long id) {
+        Map<String, Object> el = db.one("SELECT code,cn_name FROM std_element WHERE id=?", id);
+        String title = "标准发布审批：" + (el == null ? id : el.get("cnName"));
+        Map<String, Object> approval = bpm.startBusiness("STANDARD", String.valueOf(id), title,
+                M.of("elementId", id, "code", el == null ? null : el.get("code")));
+        if (approval != null) {
+            return Result.ok(M.of("id", id, "status", "PENDING_APPROVAL", "approval", approval));
+        }
         db.update("UPDATE std_element SET status='PUBLISHED' WHERE id=?", id);
         return Result.ok(M.of("id", id, "status", "PUBLISHED"));
     }

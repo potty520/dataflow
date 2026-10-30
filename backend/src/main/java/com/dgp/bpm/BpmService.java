@@ -132,6 +132,7 @@ public class BpmService {
         if (next == null) {
             db.update("UPDATE bpm_instance SET status='APPROVED',end_time=?,current_node=NULL WHERE id=?",
                     LocalDateTime.now(), inst.get("id"));
+            completeBusiness(inst);
         } else {
             db.update("UPDATE bpm_instance SET current_node=? WHERE id=?", next.get("id"), inst.get("id"));
             createTask(((Number) inst.get("id")).longValue(), next);
@@ -153,6 +154,57 @@ public class BpmService {
         }
         db.update("UPDATE bpm_task SET assignee=?,assignee_role=?,comment=? WHERE id=?",
                 assignee, assigneeRole, comment, taskId);
+    }
+
+
+    // ---------------- 业务挂接 ----------------
+    public List<Map<String, Object>> hooks() {
+        return db.list("SELECT * FROM bpm_business_hook ORDER BY id");
+    }
+
+    public Map<String, Object> saveHook(Map<String, Object> b) {
+        String type = Db.str(b.get("businessType"));
+        String defCode = Db.str(b.get("defCode"));
+        if (type == null || type.isBlank() || defCode == null || defCode.isBlank()) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "业务类型与流程编码不能为空");
+        }
+        Map<String, Object> exist = db.one("SELECT * FROM bpm_business_hook WHERE business_type=?", type);
+        if (exist == null) {
+            long id = db.insert("INSERT INTO bpm_business_hook(business_type,def_code,enabled,remark,create_time,update_time) "
+                    + "VALUES(?,?,?,?,?,?)", type, defCode, b.getOrDefault("enabled", 0), b.get("remark"),
+                    LocalDateTime.now(), LocalDateTime.now());
+            return M.of("id", id);
+        }
+        db.update("UPDATE bpm_business_hook SET def_code=?,enabled=?,remark=?,update_time=? WHERE business_type=?",
+                defCode, b.containsKey("enabled") ? b.get("enabled") : exist.get("enabled"),
+                b.containsKey("remark") ? b.get("remark") : exist.get("remark"), LocalDateTime.now(), type);
+        return M.of("id", exist.get("id"));
+    }
+
+    public void deleteHook(long id) { db.update("DELETE FROM bpm_business_hook WHERE id=?", id); }
+
+    /** 业务发起审批：未配置或未启用返回 null，调用方按原逻辑直接执行。 */
+    public Map<String, Object> startBusiness(String businessType, String businessId, String title, Object form) {
+        Map<String, Object> hook = db.one("SELECT * FROM bpm_business_hook WHERE business_type=? AND enabled=1", businessType);
+        if (hook == null) return null;
+        Map<String, Object> def = db.one("SELECT * FROM bpm_process_def WHERE code=? AND status='PUBLISHED'", hook.get("defCode"));
+        if (def == null) return null;
+        Map<String, Object> out = start(String.valueOf(hook.get("defCode")), title, businessType, businessId, form, AuthContext.username());
+        out.put("defCode", hook.get("defCode"));
+        return out;
+    }
+
+    private void completeBusiness(Map<String, Object> inst) {
+        String type = String.valueOf(inst.get("businessType"));
+        String bizId = inst.get("businessId") == null ? "" : String.valueOf(inst.get("businessId"));
+        try {
+            if ("STANDARD".equals(type)) {
+                db.update("UPDATE std_element SET status='PUBLISHED' WHERE id=?", Db.longVal(bizId, 0L));
+            } else if ("MODEL".equals(type)) {
+                db.update("UPDATE mdl_model SET status='PUBLISHED' WHERE id=?", Db.longVal(bizId, 0L));
+            }
+        } catch (Exception ignore) {
+        }
     }
 
     // ---------------- helpers ----------------

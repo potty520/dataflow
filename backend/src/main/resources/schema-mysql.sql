@@ -1645,3 +1645,16 @@ CREATE TABLE IF NOT EXISTS bpm_task (
     KEY idx_bpm_task_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+-- ============================================================
+-- v1.14：BPM 业务挂接（标准发布等业务走审批）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bpm_business_hook (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    business_type VARCHAR(64) NOT NULL UNIQUE,
+    def_code VARCHAR(64) NOT NULL,
+    enabled INT DEFAULT 0,
+    remark VARCHAR(255),
+    create_time DATETIME,
+    update_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

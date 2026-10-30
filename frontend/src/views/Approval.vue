@@ -37,6 +37,26 @@
         </el-table>
       </el-tab-pane>
 
+      <el-tab-pane label="业务挂接" name="hooks">
+        <div class="toolbar">
+          <span class="hint">启用后，对应业务动作先发起审批，审批通过再回写业务状态（如标准发布）</span>
+          <span class="spacer"></span>
+          <el-button size="small" type="primary" @click="openHook()">新建挂接</el-button>
+        </div>
+        <el-table :data="hooks" size="small">
+          <el-table-column prop="businessType" label="业务类型" width="160"><template #default="{ row }"><span class="mono">{{ row.businessType }}</span></template></el-table-column>
+          <el-table-column prop="defCode" label="流程编码" width="220"><template #default="{ row }"><span class="mono">{{ row.defCode }}</span></template></el-table-column>
+          <el-table-column prop="enabled" label="启用" width="90"><template #default="{ row }">{{ row.enabled ? '是' : '否' }}</template></el-table-column>
+          <el-table-column prop="remark" label="说明" min-width="220" />
+          <el-table-column label="操作" width="140">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openHook(row)">编辑</el-button>
+              <el-button link type="danger" size="small" @click="removeHook(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
       <el-tab-pane label="流程定义" name="defs">
         <div class="toolbar">
           <span class="hint">节点顺序：start → approval… → end；审批人支持 USER（用户名）或 ROLE（角色编码）</span>
@@ -59,6 +79,19 @@
         </el-table>
       </el-tab-pane>
     </el-tabs>
+
+    <el-dialog v-model="hookDialog" title="业务挂接配置" width="480px">
+      <el-form label-width="100px" size="small">
+        <el-form-item label="业务类型"><el-input v-model="hookForm.businessType" :disabled="!!hookForm.existing" placeholder="STANDARD / MODEL" /></el-form-item>
+        <el-form-item label="流程编码"><el-input v-model="hookForm.defCode" placeholder="BPM_STD_PUBLISH" /></el-form-item>
+        <el-form-item label="启用"><el-switch v-model="hookForm.enabled" :active-value="1" :inactive-value="0" /></el-form-item>
+        <el-form-item label="说明"><el-input v-model="hookForm.remark" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button size="small" @click="hookDialog = false">取消</el-button>
+        <el-button size="small" type="primary" @click="saveHook">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="actionDialog" :title="actionTitle" width="460px">
       <el-form label-width="90px" size="small">
@@ -136,6 +169,17 @@ const startDialog = ref(false)
 const startForm = reactive({ defCode: '', title: '', businessType: 'GENERAL', businessId: '', formText: '{}' })
 const defDialog = ref(false)
 const defForm = reactive({ id: null, code: '', name: '', nodesText: '', remark: '' })
+const hooks = ref([])
+const hookDialog = ref(false)
+const hookForm = reactive({ existing: false, businessType: '', defCode: '', enabled: 0, remark: '' })
+const loadHooks = async () => { try { hooks.value = (await bpmApi.hooks()).records || [] } catch (e) { hooks.value = [] } }
+const openHook = (row) => {
+  Object.assign(hookForm, { existing: false, businessType: '', defCode: '', enabled: 0, remark: '' })
+  if (row) Object.assign(hookForm, { existing: true, businessType: row.businessType, defCode: row.defCode, enabled: row.enabled, remark: row.remark })
+  hookDialog.value = true
+}
+const saveHook = async () => { try { await bpmApi.saveHook({ ...hookForm }); ElMessage.success('挂接已保存'); hookDialog.value = false; loadHooks() } catch (e) { /* http 层已提示 */ } }
+const removeHook = async (row) => { try { await ElMessageBox.confirm('删除挂接 ' + row.businessType + '？', '提示', { type: 'warning' }); await bpmApi.deleteHook(row.id); loadHooks() } catch (e) { /* 取消 */ } }
 const detailDrawer = ref(false)
 const detail = ref(null)
 
@@ -148,7 +192,7 @@ const fmt = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const loadTodo = async () => { try { todoList.value = (await bpmApi.todo()).records || [] } catch (e) { todoList.value = [] } }
 const loadMine = async () => { try { mineList.value = (await bpmApi.mine()).records || [] } catch (e) { mineList.value = [] } }
 const loadDefs = async () => { try { defs.value = (await bpmApi.defs()).records || [] } catch (e) { defs.value = [] } }
-const loadAll = async () => { loading.value = true; await Promise.allSettled([loadTodo(), loadMine(), loadDefs()]); loading.value = false }
+const loadAll = async () => { loading.value = true; await Promise.allSettled([loadTodo(), loadMine(), loadDefs(), loadHooks()]); loading.value = false }
 
 const openAction = (row, mode) => {
   actionTask.value = row; actionMode.value = mode

@@ -51,6 +51,25 @@ public class BpmController {
         return Result.ok(M.of("deleted", true));
     }
 
+    @GetMapping("/hooks")
+    @RequirePerm("bpm:def:view")
+    public Result<Object> hooks() {
+        return Result.ok(M.of("records", bpm.hooks()));
+    }
+
+    @PostMapping("/hooks")
+    @RequirePerm("bpm:def:edit")
+    public Result<Object> saveHook(@RequestBody Map<String, Object> b) {
+        return Result.ok(bpm.saveHook(b));
+    }
+
+    @DeleteMapping("/hooks/{id}")
+    @RequirePerm("bpm:def:edit")
+    public Result<Object> deleteHook(@PathVariable long id) {
+        bpm.deleteHook(id);
+        return Result.ok(M.of("deleted", true));
+    }
+
     @PostMapping("/instances")
     @RequirePerm("bpm:task:start")
     public Result<Object> start(@RequestBody Map<String, Object> b) {
