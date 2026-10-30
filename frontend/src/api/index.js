@@ -260,6 +260,14 @@ export const migrationApi = {
   aggRuns: (id) => http.get(`/api/v1/migration/agg/${id}/runs`),
   aggEnable: (id, enabled) => http.post(`/api/v1/migration/agg/${id}/enable`, { enabled }),
 }
+export const cdcApi = {
+  tasks: () => http.get('/api/v1/cdc/tasks'),
+  saveTask: (data) => http.post('/api/v1/cdc/tasks', data),
+  deleteTask: (id) => http.delete(`/api/v1/cdc/tasks/${id}`),
+  run: (id) => http.post(`/api/v1/cdc/tasks/${id}/run`),
+  runs: (params) => http.get('/api/v1/cdc/runs', { params })
+}
+
 export const monitorApi = {
   overview: () => http.get('/api/v1/monitor/overview'),
   collect: () => http.post('/api/v1/monitor/collect'),

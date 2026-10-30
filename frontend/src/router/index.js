@@ -21,6 +21,7 @@ const routes = [
       { path: 'standard/mapping', component: () => import('@/views/StandardMapping.vue'), meta: { title: '标准映射与落地', perm: 'standard:mapping:view' } },
       { path: 'integration', component: () => import('@/views/Integration.vue'), meta: { title: '数据集成', perm: 'integration:job:view' } },
       { path: 'integration/config', component: () => import('@/views/IntegrationConfig.vue'), meta: { title: '集成配置', perm: 'integration:config:view' } },
+      { path: 'cdc', component: () => import('@/views/Cdc.vue'), meta: { title: 'CDC/整库同步', perm: 'cdc:view' } },
       { path: 'workflow', component: () => import('@/views/Workflow.vue'), meta: { title: '调度与工作流', perm: 'workflow:definition:view' } },
       { path: 'approval', component: () => import('@/views/Approval.vue'), meta: { title: '审批中心', perm: 'bpm:task:view' } },
       { path: 'quality', component: () => import('@/views/Quality.vue'), meta: { title: '数据质量', perm: 'quality:rule:view' } },
