@@ -121,6 +121,20 @@ export const integrationApi = {
   stats: () => http.get('/api/v1/integration/stats/overview', { silent: true })
 }
 
+export const integrationConfigApi = {
+  functions: (params) => http.get('/api/v1/integration/config/functions', { params }),
+  createFunction: (data) => http.post('/api/v1/integration/config/functions', data),
+  updateFunction: (id, data) => http.put(`/api/v1/integration/config/functions/${id}`, data),
+  deleteFunction: (id) => http.delete(`/api/v1/integration/config/functions/${id}`),
+  testFunction: (expression) => http.post('/api/v1/integration/config/functions/test', { expression }),
+  incr: (params) => http.get('/api/v1/integration/config/incr', { params }),
+  saveIncr: (data) => http.post('/api/v1/integration/config/incr', data),
+  deleteIncr: (id) => http.delete(`/api/v1/integration/config/incr/${id}`),
+  batch: (params) => http.get('/api/v1/integration/config/batch', { params }),
+  saveBatch: (data) => http.post('/api/v1/integration/config/batch', data),
+  deleteBatch: (id) => http.delete(`/api/v1/integration/config/batch/${id}`)
+}
+
 export const workflowApi = {
   definitions: () => http.get('/api/v1/workflow/definitions'),
   definition: (id) => http.get(`/api/v1/workflow/definitions/${id}`),

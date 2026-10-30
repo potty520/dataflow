@@ -27,6 +27,7 @@ public final class MenuCatalog {
         out.add(item("standard", "数据标准", "/standard", "Collection", "standard:element:view", "standard"));
         out.add(item("standard-map", "标准映射与落地", "/standard/mapping", "Connection", "standard:mapping:view", "standard"));
         out.add(item("integration", "数据集成", "/integration", "Operation", "integration:job:view", "integration"));
+        out.add(item("integration-config", "集成配置", "/integration/config", "Setting", "integration:config:view", "integration"));
         out.add(item("workflow", "调度与工作流", "/workflow", "Timer", "workflow:definition:view", "workflow"));
         out.add(item("quality", "数据质量", "/quality", "CircleCheck", "quality:rule:view", "quality"));
         out.add(item("quality-config", "质量配置", "/quality/config", "Setting", "quality:config:view", "quality"));

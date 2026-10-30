@@ -19,6 +19,7 @@ const routes = [
       { path: 'standard', component: () => import('@/views/Standard.vue'), meta: { title: '数据标准', perm: 'standard:element:view', tab: 'element' } },
       { path: 'standard/mapping', component: () => import('@/views/StandardMapping.vue'), meta: { title: '标准映射与落地', perm: 'standard:mapping:view' } },
       { path: 'integration', component: () => import('@/views/Integration.vue'), meta: { title: '数据集成', perm: 'integration:job:view' } },
+      { path: 'integration/config', component: () => import('@/views/IntegrationConfig.vue'), meta: { title: '集成配置', perm: 'integration:config:view' } },
       { path: 'workflow', component: () => import('@/views/Workflow.vue'), meta: { title: '调度与工作流', perm: 'workflow:definition:view' } },
       { path: 'quality', component: () => import('@/views/Quality.vue'), meta: { title: '数据质量', perm: 'quality:rule:view' } },
       { path: 'quality/config', component: () => import('@/views/QualityConfig.vue'), meta: { title: '质量配置', perm: 'quality:config:view' } },
