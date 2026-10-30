@@ -141,6 +141,15 @@ export const qualityApi = {
   deleteRule: (id) => http.delete(`/api/v1/quality/rules/${id}`),
   tryRun: (id) => http.post(`/api/v1/quality/rules/${id}/try-run`),
   templates: (params) => http.get('/api/v1/quality/rules/templates', { params }),
+  issueRules: () => http.get('/api/v1/quality/config/issue-rules'),
+  createIssueRule: (data) => http.post('/api/v1/quality/config/issue-rules', data),
+  updateIssueRule: (id, data) => http.put(`/api/v1/quality/config/issue-rules/${id}`, data),
+  deleteIssueRule: (id) => http.delete(`/api/v1/quality/config/issue-rules/${id}`),
+  checkTemplates: () => http.get('/api/v1/quality/config/check-templates'),
+  createCheckTemplate: (data) => http.post('/api/v1/quality/config/check-templates', data),
+  updateCheckTemplate: (id, data) => http.put(`/api/v1/quality/config/check-templates/${id}`, data),
+  deleteCheckTemplate: (id) => http.delete(`/api/v1/quality/config/check-templates/${id}`),
+  applyCheckTemplate: (id) => http.post(`/api/v1/quality/config/check-templates/${id}/apply`),
   batchApply: (data) => http.post('/api/v1/quality/rules/batch-apply', data),
   checks: () => http.get('/api/v1/quality/checks', { silent: true }),
   runCheck: (id) => http.post(`/api/v1/quality/checks/${id}/run`),
@@ -328,6 +337,9 @@ export default { authApi, metadataApi, modelApi, standardApi, integrationApi, wo
 
 export const reportApi = {
   templates: () => http.get('/api/v1/report/templates'),
+  createTemplate: (data) => http.post('/api/v1/report/templates', data),
+  updateTemplate: (id, data) => http.put(`/api/v1/report/templates/${id}`, data),
+  deleteTemplate: (id) => http.delete(`/api/v1/report/templates/${id}`),
   generate: (data) => http.post('/api/v1/report/generate', data),
   task: (taskId) => http.get(`/api/v1/report/tasks/${taskId}`),
   files: (taskId) => http.get(`/api/v1/report/tasks/${taskId}/files`)

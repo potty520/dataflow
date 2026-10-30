@@ -1454,3 +1454,37 @@ CREATE TABLE IF NOT EXISTS mdl_column_mapping (
     KEY idx_mdl_col_map_model (model_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+-- ============================================================
+-- v1.9：质量配置化（工单规则 / 稽核模板）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS qa_issue_rule (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT DEFAULT 1,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(128) NOT NULL,
+    auto_create INT DEFAULT 1,
+    overdue_hours INT DEFAULT 72,
+    escalate_hours INT DEFAULT 96,
+    default_assignee VARCHAR(64),
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    remark VARCHAR(255),
+    create_time DATETIME,
+    update_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS qa_check_template (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT DEFAULT 1,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(128) NOT NULL,
+    check_mode VARCHAR(16) DEFAULT 'FULL',
+    schedule_type VARCHAR(16) DEFAULT 'MANUAL',
+    cron VARCHAR(64),
+    batch_size INT DEFAULT 10000,
+    rule_codes TEXT,
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    remark VARCHAR(255),
+    create_time DATETIME,
+    update_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

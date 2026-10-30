@@ -254,14 +254,27 @@ public class QualityEngine {
                     rule.get("id"));
             return;
         }
-        String assignee = (owner == null || "null".equals(owner) || owner.isBlank()) ? "刘琴" : owner;
+        Map<String, Object> issueRule = null;
+        try {
+            issueRule = db.one("SELECT * FROM qa_issue_rule WHERE status='ENABLED' ORDER BY id LIMIT 1");
+        } catch (Exception ignore) {
+        }
+        if (issueRule != null && "0".equals(String.valueOf(issueRule.get("autoCreate")))) {
+            return; // 配置为不自动建单
+        }
+        long overdueHours = issueRule == null || issueRule.get("overdueHours") == null
+                ? 72L : ((Number) issueRule.get("overdueHours")).longValue();
+        String ruleAssignee = issueRule == null ? null : (issueRule.get("defaultAssignee") == null
+                ? null : String.valueOf(issueRule.get("defaultAssignee")));
+        String assignee = (owner == null || "null".equals(owner) || owner.isBlank())
+                ? (ruleAssignee == null || ruleAssignee.isBlank() ? "刘琴" : ruleAssignee) : owner;
         String sample = sample(table, column);
         db.insert("INSERT INTO qa_issue(tenant_id,code,rule_id,rule_name,table_id,table_name,column_name,dimension,severity,assignee,"
                         + "status,discover_time,due_time,description,sample_data,recur_cnt,biz_date) "
                         + "VALUES(?,?,?,?,?,?,?,?,?,?,'DISCOVERED',?,?,?,?,0,?)",
                 AuthContextHolder.tenantId(), Ids.code("QI"), rule.get("id"), rule.get("name"), rule.get("tableId"), table,
                 column, rule.get("dimension"), rule.get("severity"), assignee,
-                LocalDateTime.now(), LocalDateTime.now().plusHours(72),
+                LocalDateTime.now(), LocalDateTime.now().plusHours(overdueHours),
                 fail + " 条数据未通过规则【" + rule.get("name") + "】，异常率 "
                         + String.format("%.2f", fail * 100d / Math.max(1, total)) + "%",
                 sample, LocalDate.now());

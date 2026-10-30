@@ -45,6 +45,28 @@ public class ReportController {
         return Result.ok(M.of("id", id));
     }
 
+    @PutMapping("/templates/{id}")
+    @RequirePerm("report:template:edit")
+    public Result<Object> updateTemplate(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        Map<String, Object> r = db.one("SELECT * FROM rpt_template WHERE id=?", id);
+        if (r == null) throw new BizException(ErrorCode.NOT_FOUND, "模板不存在");
+        db.update("UPDATE rpt_template SET name=?,report_type=?,industry=?,engine=?,content=?,status=? WHERE id=?",
+                b.containsKey("name") ? b.get("name") : r.get("name"),
+                b.containsKey("reportType") ? b.get("reportType") : r.get("reportType"),
+                b.containsKey("industry") ? b.get("industry") : r.get("industry"),
+                b.containsKey("engine") ? b.get("engine") : r.get("engine"),
+                b.containsKey("sections") ? JsonUtil.toJson(b.get("sections")) : r.get("content"),
+                b.containsKey("status") ? b.get("status") : r.get("status"), id);
+        return Result.ok(M.of("id", id));
+    }
+
+    @DeleteMapping("/templates/{id}")
+    @RequirePerm("report:template:edit")
+    public Result<Object> deleteTemplate(@PathVariable long id) {
+        db.update("DELETE FROM rpt_template WHERE id=?", id);
+        return Result.ok(M.of("deleted", true));
+    }
+
     @PostMapping("/generate")
     @RequirePerm("report:generate")
     public Result<Object> generate(@RequestBody Map<String, Object> b) {

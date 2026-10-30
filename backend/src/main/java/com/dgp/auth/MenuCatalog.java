@@ -29,6 +29,7 @@ public final class MenuCatalog {
         out.add(item("integration", "数据集成", "/integration", "Operation", "integration:job:view", "integration"));
         out.add(item("workflow", "调度与工作流", "/workflow", "Timer", "workflow:definition:view", "workflow"));
         out.add(item("quality", "数据质量", "/quality", "CircleCheck", "quality:rule:view", "quality"));
+        out.add(item("quality-config", "质量配置", "/quality/config", "Setting", "quality:config:view", "quality"));
         out.add(item("quality-stream", "流式质检", "/quality/stream", "Odometer", "quality:stream:view", "quality"));
         out.add(item("quality-issue", "问题闭环", "/quality/issues", "Warning", "quality:issue:view", "quality"));
         out.add(item("quality-report", "质量报告", "/quality/reports", "Document", "quality:report:view", "quality"));

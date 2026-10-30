@@ -254,7 +254,7 @@ public class MetaSeeder {
         String quality = "metadata:overview:view,metadata:table:view,metadata:column:view,metadata:search,metadata:lineage:view,"
                 + "quality:rule:view,quality:rule:create,quality:rule:edit,quality:rule:audit,quality:rule:exec,quality:template:view,"
                 + "quality:rule:batch,quality:check:view,quality:check:create,quality:check:exec,quality:report:view,quality:report:export,"
-                + "quality:score:view,quality:score:config,quality:issue:view,quality:issue:dispatch,quality:issue:handle,quality:issue:review,"
+                + "quality:score:view,quality:score:config,quality:issue:view,quality:issue:dispatch,quality:issue:handle,quality:issue:review,quality:config:view,quality:config:edit,"
                 + "quality:overview:view,quality:stream:view,quality:stream:create,quality:stream:edit,quality:stream:exec,quality:stream:handle,"
                 + "standard:element:view,standard:mapping:view,standard:base:view,asset:catalog:view,asset:map:view,asset:category:view,"
                 + "report:template:view,report:download";
