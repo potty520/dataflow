@@ -49,6 +49,19 @@ export const metadataApi = {
   stats: () => http.get('/api/v1/metadata/stats/overview', { silent: true })
 }
 
+export const standardBaseApi = {
+  groups: (params) => http.get('/api/v1/standard/base/groups', { params }),
+  stats: () => http.get('/api/v1/standard/base/stats'),
+  createGroup: (data) => http.post('/api/v1/standard/base/groups', data),
+  updateGroup: (id, data) => http.put(`/api/v1/standard/base/groups/${id}`, data),
+  deleteGroup: (id) => http.delete(`/api/v1/standard/base/groups/${id}`),
+  items: (id, params) => http.get(`/api/v1/standard/base/groups/${id}/items`, { params }),
+  createItem: (id, data) => http.post(`/api/v1/standard/base/groups/${id}/items`, data),
+  updateItem: (itemId, data) => http.put(`/api/v1/standard/base/items/${itemId}`, data),
+  deleteItem: (itemId) => http.delete(`/api/v1/standard/base/items/${itemId}`),
+  batchItems: (id, items) => http.post(`/api/v1/standard/base/groups/${id}/items/batch`, { items })
+}
+
 export const modelApi = {
   list: (params) => http.get('/api/v1/model/models', { params }),
   detail: (id) => http.get(`/api/v1/model/models/${id}`),

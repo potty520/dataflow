@@ -1393,3 +1393,32 @@ CREATE TABLE IF NOT EXISTS sys_refresh_token (
     KEY idx_refresh_sid (sid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+-- ============================================================
+-- v1.7：数据标准基础库（数据字典/代码集/常用词汇/模型标准）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS std_base_group (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT DEFAULT 1,
+    type VARCHAR(16) NOT NULL,
+    code VARCHAR(64) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    description VARCHAR(500),
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    create_time DATETIME,
+    update_time DATETIME,
+    CONSTRAINT uk_std_base_group UNIQUE (type, code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS std_base_item (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    group_id BIGINT NOT NULL,
+    code VARCHAR(64) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    description VARCHAR(500),
+    sort_no INT DEFAULT 0,
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    create_time DATETIME,
+    KEY idx_std_base_item_group (group_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+

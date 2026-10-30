@@ -243,7 +243,7 @@ public class MetaSeeder {
                 + "metadata:import:execute,metadata:term:view,"
                 + "model:model:view,model:model:create,model:model:edit,model:model:publish,model:ddl:preview,model:ddl:execute,"
                 + "model:overview:view,model:template:view,"
-                + "standard:element:view,standard:mapping:view,standard:mapping:recommend,standard:mapping:batch,standard:compliance:check,"
+                + "standard:element:view,standard:mapping:view,standard:mapping:recommend,standard:mapping:batch,standard:compliance:check,standard:base:view,standard:base:edit,"
                 + "integration:datasource:view,integration:datasource:test,integration:job:view,integration:job:create,integration:job:edit,"
                 + "integration:job:run,integration:job:script,integration:sql:edit,integration:adhoc:query,integration:overview:view,"
                 + "integration:sandbox:view,workflow:definition:view,workflow:definition:trigger,workflow:instance:view,workflow:overview:view,"
@@ -256,7 +256,7 @@ public class MetaSeeder {
                 + "quality:rule:batch,quality:check:view,quality:check:create,quality:check:exec,quality:report:view,quality:report:export,"
                 + "quality:score:view,quality:score:config,quality:issue:view,quality:issue:dispatch,quality:issue:handle,quality:issue:review,"
                 + "quality:overview:view,quality:stream:view,quality:stream:create,quality:stream:edit,quality:stream:exec,quality:stream:handle,"
-                + "standard:element:view,standard:mapping:view,asset:catalog:view,asset:map:view,asset:category:view,"
+                + "standard:element:view,standard:mapping:view,standard:base:view,asset:catalog:view,asset:map:view,asset:category:view,"
                 + "report:template:view,report:download";
         String analyst = "metadata:overview:view,metadata:table:view,metadata:column:view,metadata:search,metadata:lineage:view,"
                 + "asset:catalog:view,asset:map:view,asset:metrics:view,asset:label:view,asset:category:view,asset:overview:view,asset:value:view,"
