@@ -260,6 +260,21 @@ export const migrationApi = {
   aggRuns: (id) => http.get(`/api/v1/migration/agg/${id}/runs`),
   aggEnable: (id, enabled) => http.post(`/api/v1/migration/agg/${id}/enable`, { enabled }),
 }
+export const bpmApi = {
+  defs: () => http.get('/api/v1/bpm/defs'),
+  createDef: (data) => http.post('/api/v1/bpm/defs', data),
+  updateDef: (id, data) => http.put(`/api/v1/bpm/defs/${id}`, data),
+  publishDef: (id) => http.post(`/api/v1/bpm/defs/${id}/publish`),
+  deleteDef: (id) => http.delete(`/api/v1/bpm/defs/${id}`),
+  start: (data) => http.post('/api/v1/bpm/instances', data),
+  mine: () => http.get('/api/v1/bpm/instances/mine'),
+  detail: (id) => http.get(`/api/v1/bpm/instances/${id}`),
+  todo: () => http.get('/api/v1/bpm/tasks/todo'),
+  approve: (id, comment) => http.post(`/api/v1/bpm/tasks/${id}/approve`, { comment }),
+  reject: (id, comment) => http.post(`/api/v1/bpm/tasks/${id}/reject`, { comment }),
+  transfer: (id, data) => http.post(`/api/v1/bpm/tasks/${id}/transfer`, data)
+}
+
 export const securityApi = {
   sensitiveRules: () => http.get('/api/v1/security/sensitive/rules'),
   scan: (data) => http.post('/api/v1/security/sensitive/scan', data || {}),
