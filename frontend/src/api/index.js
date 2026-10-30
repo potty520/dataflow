@@ -260,6 +260,17 @@ export const migrationApi = {
   aggRuns: (id) => http.get(`/api/v1/migration/agg/${id}/runs`),
   aggEnable: (id, enabled) => http.post(`/api/v1/migration/agg/${id}/enable`, { enabled }),
 }
+export const monitorApi = {
+  overview: () => http.get('/api/v1/monitor/overview'),
+  collect: () => http.post('/api/v1/monitor/collect'),
+  snapshots: (params) => http.get('/api/v1/monitor/snapshots', { params }),
+  alerts: (params) => http.get('/api/v1/monitor/alerts', { params }),
+  ack: (id) => http.post(`/api/v1/monitor/alerts/${id}/ack`),
+  rules: () => http.get('/api/v1/monitor/rules'),
+  saveRule: (data) => http.post('/api/v1/monitor/rules', data),
+  deleteRule: (id) => http.delete(`/api/v1/monitor/rules/${id}`)
+}
+
 export const bpmApi = {
   defs: () => http.get('/api/v1/bpm/defs'),
   createDef: (data) => http.post('/api/v1/bpm/defs', data),
