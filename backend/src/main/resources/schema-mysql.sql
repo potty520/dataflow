@@ -299,6 +299,7 @@ CREATE TABLE IF NOT EXISTS mdl_publish_flow (
     applicant VARCHAR(64),
     auditor VARCHAR(64),
     status VARCHAR(16) DEFAULT 'PENDING',
+    approval_mode VARCHAR(16) DEFAULT 'SINGLE',
     comment VARCHAR(500),
     create_time DATETIME,
     finish_time DATETIME
@@ -1637,6 +1638,7 @@ CREATE TABLE IF NOT EXISTS bpm_task (
     assignee_role VARCHAR(64),
     assignee VARCHAR(64),
     status VARCHAR(16) DEFAULT 'PENDING',
+    approval_mode VARCHAR(16) DEFAULT 'SINGLE',
     comment VARCHAR(500),
     create_time DATETIME,
     finish_time DATETIME,
@@ -1739,3 +1741,6 @@ CREATE TABLE IF NOT EXISTS cdc_run (
     message VARCHAR(1000),
     KEY idx_cdc_run_task (task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- v1.17：BPM 会签/加签
+ALTER TABLE bpm_task ADD COLUMN IF NOT EXISTS approval_mode VARCHAR(16) DEFAULT 'SINGLE';

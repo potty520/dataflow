@@ -15,9 +15,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 最小可用 BPM 引擎（P1）：
- * 流程定义 = 顺序节点（start / approval / end），审批节点按用户或角色派单；
- * 支持发起、通过、驳回、转办与时间线查询。
+ * BPM 引擎（P1）：顺序节点 + 条件分支 + 会签/加签。
+ * 节点 JSON：
+ * {"nodes":[
+ *   {"id":"start","type":"start"},
+ *   {"id":"a1","type":"approval","name":"经理审批","assignees":[{"type":"ROLE","value":"ROLE_GOV_ADMIN"}],
+ *    "condition":{"field":"amount","op":">=","value":1000}},
+ *   {"id":"a2","type":"approval","name":"会签","approvalMode":"ALL",
+ *    "assignees":[{"type":"USER","value":"admin"},{"type":"USER","value":"liuqin"}]},
+ *   {"id":"end","type":"end"}]}
  */
 @Service
 public class BpmService {
@@ -82,18 +88,20 @@ public class BpmService {
                                      Object form, String starter) {
         Map<String, Object> d = db.one("SELECT * FROM bpm_process_def WHERE code=? AND status='PUBLISHED'", defCode);
         if (d == null) throw new BizException(ErrorCode.PARAM_INVALID, "流程不存在或未发布");
-        Map<String, Object> first = firstApproval(d, null);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> formMap = form instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+        Map<String, Object> first = firstApproval(d, null, formMap);
         long instanceId = db.insert("INSERT INTO bpm_instance(tenant_id,def_id,def_code,def_name,title,business_type,"
                         + "business_id,form_json,status,current_node,starter,start_time) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 AuthContext.tenantId(), d.get("id"), defCode, d.get("name"),
                 title == null || title.isBlank() ? d.get("name") + " 审批" : title,
-                businessType, businessId, JsonUtil.toJson(form == null ? Map.of() : form),
+                businessType, businessId, JsonUtil.toJson(formMap),
                 first == null ? "APPROVED" : "RUNNING", first == null ? null : first.get("id"),
                 starter, LocalDateTime.now());
         if (first == null) {
             db.update("UPDATE bpm_instance SET end_time=? WHERE id=?", LocalDateTime.now(), instanceId);
         } else {
-            createTask(instanceId, first);
+            createTasks(instanceId, first);
         }
         return M.of("id", instanceId, "status", first == null ? "APPROVED" : "RUNNING");
     }
@@ -127,22 +135,41 @@ public class BpmService {
         Map<String, Object> inst = db.one("SELECT * FROM bpm_instance WHERE id=?", task.get("instanceId"));
         db.update("UPDATE bpm_task SET status='APPROVED',comment=?,finish_time=?,operator=? WHERE id=?",
                 comment, LocalDateTime.now(), AuthContext.username(), taskId);
+        long pending = db.count("SELECT COUNT(*) FROM bpm_task WHERE instance_id=? AND node_id=? AND status='PENDING'",
+                task.get("instanceId"), task.get("nodeId"));
+        if (pending > 0) return; // 会签：还有人未处理
         Map<String, Object> def = db.one("SELECT * FROM bpm_process_def WHERE id=?", inst.get("defId"));
-        Map<String, Object> next = firstApproval(def, String.valueOf(task.get("nodeId")));
+        Map<String, Object> form = JsonUtil.parse(String.valueOf(inst.get("formJson")));
+        Map<String, Object> next = firstApproval(def, String.valueOf(task.get("nodeId")), form);
         if (next == null) {
             db.update("UPDATE bpm_instance SET status='APPROVED',end_time=?,current_node=NULL WHERE id=?",
                     LocalDateTime.now(), inst.get("id"));
             completeBusiness(inst);
         } else {
             db.update("UPDATE bpm_instance SET current_node=? WHERE id=?", next.get("id"), inst.get("id"));
-            createTask(((Number) inst.get("id")).longValue(), next);
+            createTasks(((Number) inst.get("id")).longValue(), next);
         }
+    }
+
+    /** 加签：同一节点追加一名审批人，原审批人仍需处理（转为会签）。 */
+    public Map<String, Object> addSign(long taskId, String assignee, String assigneeRole) {
+        Map<String, Object> task = handle(taskId);
+        if ((assignee == null || assignee.isBlank()) && (assigneeRole == null || assigneeRole.isBlank())) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "加签对象不能为空");
+        }
+        db.update("UPDATE bpm_task SET approval_mode='ALL' WHERE instance_id=? AND node_id=? AND status='PENDING'",
+                task.get("instanceId"), task.get("nodeId"));
+        long id = db.insert("INSERT INTO bpm_task(instance_id,node_id,node_name,assignee_role,assignee,status,approval_mode,create_time) "
+                        + "VALUES(?,?,?,?,?,'PENDING','ALL',?)",
+                task.get("instanceId"), task.get("nodeId"), task.get("nodeName"), assigneeRole, assignee, LocalDateTime.now());
+        return M.of("id", id, "nodeId", task.get("nodeId"));
     }
 
     public void reject(long taskId, String comment) {
         Map<String, Object> task = handle(taskId);
         db.update("UPDATE bpm_task SET status='REJECTED',comment=?,finish_time=?,operator=? WHERE id=?",
                 comment, LocalDateTime.now(), AuthContext.username(), taskId);
+        db.update("UPDATE bpm_task SET status='CANCELED' WHERE instance_id=? AND status='PENDING'", task.get("instanceId"));
         db.update("UPDATE bpm_instance SET status='REJECTED',end_time=? WHERE id=?",
                 LocalDateTime.now(), task.get("instanceId"));
     }
@@ -155,7 +182,6 @@ public class BpmService {
         db.update("UPDATE bpm_task SET assignee=?,assignee_role=?,comment=? WHERE id=?",
                 assignee, assigneeRole, comment, taskId);
     }
-
 
     // ---------------- 业务挂接 ----------------
     public List<Map<String, Object>> hooks() {
@@ -183,7 +209,6 @@ public class BpmService {
 
     public void deleteHook(long id) { db.update("DELETE FROM bpm_business_hook WHERE id=?", id); }
 
-    /** 业务发起审批：未配置或未启用返回 null，调用方按原逻辑直接执行。 */
     public Map<String, Object> startBusiness(String businessType, String businessId, String title, Object form) {
         Map<String, Object> hook = db.one("SELECT * FROM bpm_business_hook WHERE business_type=? AND enabled=1", businessType);
         if (hook == null) return null;
@@ -228,7 +253,8 @@ public class BpmService {
                 || (role != null && role.equals(u.getRoleCode()));
     }
 
-    private Map<String, Object> firstApproval(Map<String, Object> def, String afterNodeId) {
+    /** 返回 afterNodeId 之后第一个“条件成立”的审批节点。 */
+    private Map<String, Object> firstApproval(Map<String, Object> def, String afterNodeId, Map<String, Object> form) {
         List<Map<String, Object>> nodes = nodes(def);
         boolean after = afterNodeId == null;
         for (Map<String, Object> n : nodes) {
@@ -236,9 +262,50 @@ public class BpmService {
                 if (String.valueOf(n.get("id")).equals(afterNodeId)) after = true;
                 continue;
             }
-            if ("approval".equals(String.valueOf(n.get("type")))) return n;
+            if (!"approval".equals(String.valueOf(n.get("type")))) continue;
+            if (conditionPass(n, form)) return n;
         }
         return null;
+    }
+
+    private boolean conditionPass(Map<String, Object> node, Map<String, Object> form) {
+        Object raw = node.get("condition");
+        if (!(raw instanceof Map<?, ?> c)) return true;
+        String field = String.valueOf(c.get("field"));
+        Object actual = form.get(field);
+        if (actual == null) return false;
+        Object opRaw = c.get("op");
+        String op = opRaw == null ? "=" : String.valueOf(opRaw);
+        Object expected = c.get("value");
+        if (isNumber(actual) && isNumber(expected)) {
+            double a = Double.parseDouble(String.valueOf(actual));
+            double b = Double.parseDouble(String.valueOf(expected));
+            return switch (op) {
+                case ">" -> a > b;
+                case ">=" -> a >= b;
+                case "<" -> a < b;
+                case "<=" -> a <= b;
+                case "!=" -> a != b;
+                default -> a == b;
+            };
+        }
+        String a = String.valueOf(actual);
+        String b = String.valueOf(expected);
+        return switch (op) {
+            case "!=" -> !a.equals(b);
+            case "contains" -> a.contains(b);
+            default -> a.equals(b);
+        };
+    }
+
+    private static boolean isNumber(Object v) {
+        if (v == null) return false;
+        try {
+            Double.parseDouble(String.valueOf(v));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -255,14 +322,34 @@ public class BpmService {
         }
     }
 
-    private void createTask(long instanceId, Map<String, Object> node) {
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> assignees(Map<String, Object> node) {
+        Object raw = node.get("assignees");
+        if (raw instanceof List<?> l && !l.isEmpty()) {
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (Object o : l) {
+                if (o instanceof Map<?, ?> m) out.add((Map<String, Object>) m);
+            }
+            return out;
+        }
         String type = String.valueOf(node.getOrDefault("assigneeType", "USER"));
         String who = String.valueOf(node.getOrDefault("assignee", AuthContext.username()));
-        String assignee = "ROLE".equalsIgnoreCase(type) ? null : who;
-        String role = "ROLE".equalsIgnoreCase(type) ? who : null;
-        db.insert("INSERT INTO bpm_task(instance_id,node_id,node_name,assignee_role,assignee,status,create_time) "
-                        + "VALUES(?,?,?,?,?,'PENDING',?)",
-                instanceId, node.get("id"), node.getOrDefault("name", node.get("id")), role, assignee,
-                LocalDateTime.now());
+        return List.of(M.of("type", type, "value", who));
+    }
+
+    private void createTasks(long instanceId, Map<String, Object> node) {
+        String mode = String.valueOf(node.getOrDefault("approvalMode", "SINGLE"));
+        List<Map<String, Object>> list = assignees(node);
+        if (list.size() > 1) mode = "ALL";
+        for (Map<String, Object> a : list) {
+            String type = String.valueOf(a.getOrDefault("type", "USER"));
+            String who = String.valueOf(a.getOrDefault("value", AuthContext.username()));
+            String assignee = "ROLE".equalsIgnoreCase(type) ? null : who;
+            String role = "ROLE".equalsIgnoreCase(type) ? who : null;
+            db.insert("INSERT INTO bpm_task(instance_id,node_id,node_name,assignee_role,assignee,status,approval_mode,create_time) "
+                            + "VALUES(?,?,?,?,?,'PENDING',?,?)",
+                    instanceId, node.get("id"), node.getOrDefault("name", node.get("id")), role, assignee, mode,
+                    LocalDateTime.now());
+        }
     }
 }

@@ -290,6 +290,7 @@ CREATE TABLE IF NOT EXISTS mdl_publish_flow (
     applicant VARCHAR(64),
     auditor VARCHAR(64),
     status VARCHAR(16) DEFAULT 'PENDING',
+    approval_mode VARCHAR(16) DEFAULT 'SINGLE',
     comment VARCHAR(500),
     create_time TIMESTAMP,
     finish_time TIMESTAMP
@@ -1633,6 +1634,7 @@ CREATE TABLE IF NOT EXISTS bpm_task (
     assignee_role VARCHAR(64),
     assignee VARCHAR(64),
     status VARCHAR(16) DEFAULT 'PENDING',
+    approval_mode VARCHAR(16) DEFAULT 'SINGLE',
     comment VARCHAR(500),
     create_time TIMESTAMP,
     finish_time TIMESTAMP,
@@ -1735,3 +1737,6 @@ CREATE TABLE IF NOT EXISTS cdc_run (
     message VARCHAR(1000)
 );
 CREATE INDEX IF NOT EXISTS idx_cdc_run_task ON cdc_run(task_id);
+
+-- v1.17：BPM 会签/加签
+ALTER TABLE bpm_task ADD COLUMN IF NOT EXISTS approval_mode VARCHAR(16) DEFAULT 'SINGLE';

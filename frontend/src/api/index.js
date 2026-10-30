@@ -292,6 +292,7 @@ export const bpmApi = {
   approve: (id, comment) => http.post(`/api/v1/bpm/tasks/${id}/approve`, { comment }),
   reject: (id, comment) => http.post(`/api/v1/bpm/tasks/${id}/reject`, { comment }),
   transfer: (id, data) => http.post(`/api/v1/bpm/tasks/${id}/transfer`, data),
+  addSign: (id, data) => http.post(`/api/v1/bpm/tasks/${id}/add-sign`, data),
   hooks: () => http.get('/api/v1/bpm/hooks'),
   saveHook: (data) => http.post('/api/v1/bpm/hooks', data),
   deleteHook: (id) => http.delete(`/api/v1/bpm/hooks/${id}`)

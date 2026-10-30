@@ -21,6 +21,7 @@
               <el-button link type="success" size="small" @click="openAction(row, 'approve')">通过</el-button>
               <el-button link type="danger" size="small" @click="openAction(row, 'reject')">驳回</el-button>
               <el-button link type="primary" size="small" @click="openAction(row, 'transfer')">转办</el-button>
+              <el-button link type="warning" size="small" @click="openAction(row, 'addsign')">加签</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -95,8 +96,8 @@
 
     <el-dialog v-model="actionDialog" :title="actionTitle" width="460px">
       <el-form label-width="90px" size="small">
-        <el-form-item v-if="actionMode === 'transfer'" label="转办给"><el-input v-model="actionForm.assignee" placeholder="用户名，或下方角色" /></el-form-item>
-        <el-form-item v-if="actionMode === 'transfer'" label="角色"><el-input v-model="actionForm.assigneeRole" placeholder="如 ROLE_QUALITY" /></el-form-item>
+        <el-form-item v-if="actionMode === 'transfer' || actionMode === 'addsign'" label="处理人"><el-input v-model="actionForm.assignee" placeholder="用户名，或下方角色" /></el-form-item>
+        <el-form-item v-if="actionMode === 'transfer' || actionMode === 'addsign'" label="角色"><el-input v-model="actionForm.assigneeRole" placeholder="如 ROLE_QUALITY" /></el-form-item>
         <el-form-item label="意见"><el-input v-model="actionForm.comment" type="textarea" :rows="3" /></el-form-item>
       </el-form>
       <template #footer>
@@ -184,7 +185,7 @@ const detailDrawer = ref(false)
 const detail = ref(null)
 
 const publishedDefs = computed(() => defs.value.filter((d) => d.status === 'PUBLISHED'))
-const actionTitle = computed(() => ({ approve: '审批通过', reject: '审批驳回', transfer: '转办' }[actionMode.value]))
+const actionTitle = computed(() => ({ approve: '审批通过', reject: '审批驳回', transfer: '转办', addsign: '加签' }[actionMode.value]))
 const statusLabel = (s) => ({ RUNNING: '审批中', APPROVED: '已通过', REJECTED: '已驳回', CANCELED: '已取消' }[s] || s)
 const statusType = (s) => (s === 'APPROVED' ? 'success' : s === 'REJECTED' ? 'danger' : 'primary')
 const fmt = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
@@ -204,6 +205,7 @@ const doAction = async () => {
   try {
     if (actionMode.value === 'approve') await bpmApi.approve(id, actionForm.comment)
     else if (actionMode.value === 'reject') await bpmApi.reject(id, actionForm.comment)
+    else if (actionMode.value === 'addsign') await bpmApi.addSign(id, { ...actionForm })
     else await bpmApi.transfer(id, { ...actionForm })
     ElMessage.success('处理完成'); actionDialog.value = false; loadAll()
   } catch (e) { /* http 层已提示 */ }
@@ -224,7 +226,8 @@ const doStart = async () => {
 
 const defaultNodes = JSON.stringify({ nodes: [
   { id: 'start', type: 'start' },
-  { id: 'approve1', type: 'approval', name: '部门审批', assigneeType: 'ROLE', assignee: 'ROLE_GOV_ADMIN' },
+  { id: 'approve1', type: 'approval', name: '部门审批', assignees: [{ type: 'ROLE', value: 'ROLE_GOV_ADMIN' }], condition: { field: 'amount', op: '>=', value: 1000 } },
+  { id: 'approve2', type: 'approval', name: '会签审批', approvalMode: 'ALL', assignees: [{ type: 'USER', value: 'admin' }, { type: 'USER', value: 'liuqin' }] },
   { id: 'end', type: 'end' }
 ] }, null, 2)
 const openDef = (row) => {

@@ -110,6 +110,12 @@ public class BpmController {
         return Result.ok(M.of("id", id, "status", "REJECTED"));
     }
 
+    @PostMapping("/tasks/{id}/add-sign")
+    @RequirePerm("bpm:task:handle")
+    public Result<Object> addSign(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        return Result.ok(bpm.addSign(id, (String) b.get("assignee"), (String) b.get("assigneeRole")));
+    }
+
     @PostMapping("/tasks/{id}/transfer")
     @RequirePerm("bpm:task:handle")
     public Result<Object> transfer(@PathVariable long id, @RequestBody Map<String, Object> b) {
