@@ -24,7 +24,9 @@ export const authApi = {
   dataScopes: () => http.get('/api/v1/auth/data-scopes'),
   changePassword: (data) => http.put('/api/v1/auth/users/0/password', data),
   // 本人改密：必须携带 oldPassword / newPassword
-  changeOwnPassword: (data) => http.put('/api/v1/auth/password', data)
+  changeOwnPassword: (data) => http.put('/api/v1/auth/password', data),
+  casStatus: () => http.get('/api/v1/auth/cas/status', { silent: true }),
+  casExchange: (code) => http.post('/api/v1/auth/cas/exchange', { code })
 }
 
 export const metadataApi = {
@@ -341,6 +343,13 @@ export const adminApi = {
   apis: () => http.get('/api/v1/admin/apis'),
   loginLogs: (params) => http.get('/api/v1/admin/logs/login', { params }),
   menus: () => http.get('/api/v1/admin/menus'),
+  casConfig: () => http.get('/api/v1/admin/cas/config'),
+  saveCasConfig: (data) => http.put('/api/v1/admin/cas/config', data),
+  portalsList: () => http.get('/api/v1/admin/portals'),
+  createPortal: (data) => http.post('/api/v1/admin/portals', data),
+  updatePortal: (id, data) => http.put(`/api/v1/admin/portals/${id}`, data),
+  deletePortal: (id) => http.delete(`/api/v1/admin/portals/${id}`),
+
   createMenu: (data) => http.post('/api/v1/admin/menus', data),
   updateMenu: (id, data) => http.put(`/api/v1/admin/menus/${id}`, data),
   deleteMenu: (id) => http.delete(`/api/v1/admin/menus/${id}`),

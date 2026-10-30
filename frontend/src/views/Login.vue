@@ -30,6 +30,9 @@
           <el-button type="primary" size="large" style="width: 100%; margin-top: 6px" :loading="loading" @click="submit">
             登 录
           </el-button>
+          <el-button v-if="casEnabled" size="large" style="width: 100%; margin-top: 10px" @click="casLogin">
+            通过 CAS / 统一门户登录
+          </el-button>
         </el-form>
         <div v-if="demoEnabled" class="accounts">
           <div><b>演示账号</b>（口令均为 Dgp@2026）</div>
@@ -43,16 +46,18 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
 const store = useAuthStore()
 const loading = ref(false)
+const casEnabled = ref(false)
 // 生产构建（.env.production 设 VITE_DEMO_LOGIN=false）不预填演示口令、不渲染演示账号清单
 const demoEnabled = import.meta.env.VITE_DEMO_LOGIN !== 'false'
 const form = reactive({
@@ -74,6 +79,13 @@ const fill = (a) => {
   form.username = a.u
   form.password = 'Dgp@2026'
 }
+
+const casLogin = () => { window.location.href = '/api/v1/auth/cas/login' }
+
+onMounted(async () => {
+  try { casEnabled.value = !!(await authApi.casStatus()).enabled } catch (e) { casEnabled.value = false }
+  if (route.query.casError) ElMessage.warning('CAS 登录失败，请重试或使用本地账号登录')
+})
 
 const submit = async () => {
   if (!form.username || !form.password) return ElMessage.warning('请输入用户名与口令')

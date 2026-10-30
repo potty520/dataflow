@@ -41,6 +41,10 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (PUBLIC.contains(uri)) {
             return true;
         }
+        // CAS 协议端点由票据/一次性 code 自校验，不要求平台 JWT
+        if (uri.startsWith("/api/v1/auth/cas/")) {
+            return true;
+        }
         try {
             String auth = req.getHeader("Authorization");
             String token = auth != null && auth.startsWith("Bearer ") ? auth.substring(7) : null;

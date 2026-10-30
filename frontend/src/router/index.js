@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 
 const routes = [
   { path: '/login', component: () => import('@/views/Login.vue'), meta: { public: true, title: '登录' } },
+  { path: '/cas-callback', component: () => import('@/views/CasCallback.vue'), meta: { public: true, title: '统一门户登录' } },
   {
     path: '/',
     component: () => import('@/layouts/MainLayout.vue'),

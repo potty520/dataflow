@@ -1567,3 +1567,31 @@ CREATE TABLE IF NOT EXISTS sys_portal_role (
     create_time DATETIME,
     PRIMARY KEY (portal_code, role_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- v1.12：CAS / 统一门户（P1）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sys_cas_config (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    enabled INT DEFAULT 0,
+    server_url VARCHAR(255),
+    service_url VARCHAR(255),
+    portal_code VARCHAR(64),
+    auto_create INT DEFAULT 1,
+    default_role VARCHAR(64) DEFAULT 'ROLE_ANALYST',
+    attribute_user VARCHAR(64) DEFAULT 'user',
+    attribute_name VARCHAR(64) DEFAULT 'displayName',
+    attribute_email VARCHAR(64) DEFAULT 'mail',
+    update_time DATETIME,
+    update_by VARCHAR(64)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS sys_portal (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(128) NOT NULL,
+    domain VARCHAR(255),
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    remark VARCHAR(255),
+    create_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

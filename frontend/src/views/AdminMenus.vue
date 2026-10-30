@@ -49,6 +49,31 @@
       </el-tab-pane>
 
       <el-tab-pane label="门户角色" name="portals">
+        <el-card shadow="never" style="margin-bottom:12px">
+          <div class="card-head"><h3>CAS 接入</h3><span class="hint">启用后登录页显示统一门户登录入口</span></div>
+          <el-form :model="casForm" label-width="110px" size="small" style="max-width:720px">
+            <el-form-item label="启用 CAS"><el-switch v-model="casForm.enabled" :active-value="1" :inactive-value="0" /></el-form-item>
+            <el-form-item label="CAS 服务地址"><el-input v-model="casForm.serverUrl" placeholder="https://cas.example.com/cas" /></el-form-item>
+            <el-form-item label="平台访问地址"><el-input v-model="casForm.serviceUrl" placeholder="http://192.168.1.41:8092" /></el-form-item>
+            <el-form-item label="门户编码"><el-input v-model="casForm.portalCode" placeholder="GOV_PORTAL" /></el-form-item>
+            <el-form-item label="自动开通账号"><el-switch v-model="casForm.autoCreate" :active-value="1" :inactive-value="0" /></el-form-item>
+            <el-form-item label="默认角色"><el-input v-model="casForm.defaultRole" placeholder="ROLE_ANALYST" /></el-form-item>
+            <el-form-item><el-button type="primary" size="small" @click="saveCas">保存 CAS 配置</el-button></el-form-item>
+          </el-form>
+        </el-card>
+        <el-card shadow="never" style="margin-bottom:12px">
+          <div class="card-head">
+            <h3>门户列表</h3>
+            <el-button size="small" type="primary" @click="portalSysDialog = true">新增门户</el-button>
+          </div>
+          <el-table :data="portalsSys" size="small">
+            <el-table-column prop="code" label="编码" width="180"><template #default="{ row }"><span class="mono">{{ row.code }}</span></template></el-table-column>
+            <el-table-column prop="name" label="名称" width="160" />
+            <el-table-column prop="domain" label="域名" min-width="200" />
+            <el-table-column prop="status" label="状态" width="90" />
+            <el-table-column label="操作" width="90"><template #default="{ row }"><el-button link type="danger" size="small" @click="removeSysPortal(row)">删除</el-button></template></el-table-column>
+          </el-table>
+        </el-card>
         <div class="toolbar">
           <span class="hint">门户编码 → 角色编码映射（供 CAS 门户按门户展示角色）</span>
           <span class="spacer"></span>
@@ -87,6 +112,19 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="portalSysDialog" title="新增门户" width="460px">
+      <el-form label-width="90px" size="small">
+        <el-form-item label="编码"><el-input v-model="portalSysForm.code" placeholder="GOV_PORTAL" /></el-form-item>
+        <el-form-item label="名称"><el-input v-model="portalSysForm.name" /></el-form-item>
+        <el-form-item label="域名"><el-input v-model="portalSysForm.domain" placeholder="https://portal.example.com" /></el-form-item>
+        <el-form-item label="说明"><el-input v-model="portalSysForm.remark" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button size="small" @click="portalSysDialog = false">取消</el-button>
+        <el-button size="small" type="primary" @click="saveSysPortal">保存</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="portalDialog" title="新增门户角色映射" width="460px">
       <el-form label-width="90px" size="small">
         <el-form-item label="门户编码"><el-input v-model="portalForm.portalCode" placeholder="如 GOV_PORTAL" /></el-form-item>
@@ -118,6 +156,15 @@ const menuDialog = ref(false)
 const portalDialog = ref(false)
 const menuForm = reactive({ id: null, code: '', title: '', path: '', icon: 'Menu', perm: '', parentCode: null, sortNo: 0, status: 'ENABLED' })
 const portalForm = reactive({ portalCode: '', roleCode: '', remark: '' })
+const casForm = reactive({ enabled: 0, serverUrl: '', serviceUrl: '', portalCode: 'GOV_PORTAL', autoCreate: 1, defaultRole: 'ROLE_ANALYST' })
+const portalsSys = ref([])
+const portalSysDialog = ref(false)
+const portalSysForm = reactive({ code: '', name: '', domain: '', remark: '' })
+const loadCas = async () => { try { Object.assign(casForm, await adminApi.casConfig()) } catch (e) { /* ignore */ } }
+const saveCas = async () => { try { await adminApi.saveCasConfig({ ...casForm }); ElMessage.success('CAS 配置已保存') } catch (e) { /* http 层已提示 */ } }
+const loadSysPortals = async () => { try { portalsSys.value = (await adminApi.portalsList()).records || [] } catch (e) { portalsSys.value = [] } }
+const saveSysPortal = async () => { try { await adminApi.createPortal({ ...portalSysForm }); ElMessage.success('门户已创建'); portalSysDialog.value = false; loadSysPortals() } catch (e) { /* http 层已提示 */ } }
+const removeSysPortal = async (row) => { try { await ElMessageBox.confirm('删除门户 ' + row.code + '？', '提示', { type: 'warning' }); await adminApi.deletePortal(row.id); loadSysPortals() } catch (e) { /* 取消 */ } }
 
 const filteredMenus = computed(() => {
   const k = keyword.value.trim().toLowerCase()
@@ -163,7 +210,7 @@ const removePortal = async (row) => {
   try { await adminApi.removePortalRole(row.portalCode, row.roleCode); loadPortals() } catch (e) { /* 取消 */ }
 }
 
-onMounted(() => { loadMenus(); loadRoles(); loadPortals() })
+onMounted(() => { loadMenus(); loadRoles(); loadPortals(); loadCas(); loadSysPortals() })
 </script>
 
 <style scoped>

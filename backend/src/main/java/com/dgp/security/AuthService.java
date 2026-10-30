@@ -123,6 +123,29 @@ public class AuthService {
         return tokenPair(au, sid);
     }
 
+    /** CAS/门户登录：不校验本地口令，按外部身份签发同一套 JWT/会话。 */
+    public Map<String, Object> externalLogin(String username, String roleOverride, String realName,
+                                             String ip, String userAgent) {
+        Map<String, Object> user = db.one("SELECT * FROM sys_user WHERE username=?", username);
+        if (user == null) throw new BizException(ErrorCode.UNAUTHORIZED, "CAS 用户未在本平台开通：" + username);
+        if (!"启用".equals(user.get("status"))) throw new BizException(ErrorCode.FORBIDDEN, "账号已停用");
+        String role = (roleOverride == null || roleOverride.isBlank())
+                ? String.valueOf(user.get("roleCode")) : roleOverride;
+        AuthUser au = new AuthUser(Db.longVal(user.get("id"), 0L), username,
+                realName == null || realName.isBlank() ? String.valueOf(user.get("realName")) : realName,
+                role, Db.longVal(user.get("tenantId"), 1L), permsOf(role));
+        db.update("UPDATE sys_user SET last_login_time=? WHERE id=?", LocalDateTime.now(), user.get("id"));
+        db.update("INSERT INTO sys_login_log(username,ip,status,message,user_agent,login_time) VALUES(?,?,?,?,?,?)",
+                username, ip, "SUCCESS", "CAS 登录", userAgent, LocalDateTime.now());
+        String sid = UUID.randomUUID().toString().replace("-", "");
+        db.insert("INSERT INTO sys_session(sid,username,user_id,tenant_id,status,ip,user_agent,create_time,last_seen) "
+                        + "VALUES(?,?,?,?,'ACTIVE',?,?,?,?)",
+                sid, username, au.getUserId(), au.getTenantId(), ip,
+                userAgent == null ? null : (userAgent.length() > 250 ? userAgent.substring(0, 250) : userAgent),
+                LocalDateTime.now(), LocalDateTime.now());
+        return tokenPair(au, sid);
+    }
+
     /**
      * 刷新令牌：一次性轮换 + 重放检测。
      * 旧 refreshToken 使用后立即标记 used_at；再次使用视为重放，直接吊销整个会话（sid 下所有令牌）。
