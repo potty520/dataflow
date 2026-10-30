@@ -1533,3 +1533,37 @@ CREATE TABLE IF NOT EXISTS int_batch_config (
     update_time DATETIME,
     CONSTRAINT uk_int_batch_job UNIQUE (job_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ============================================================
+-- v1.11：菜单管理与门户角色（BF-10）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sys_menu (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT DEFAULT 1,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    title VARCHAR(128) NOT NULL,
+    path VARCHAR(255),
+    icon VARCHAR(64),
+    perm VARCHAR(128),
+    parent_code VARCHAR(64),
+    sort_no INT DEFAULT 0,
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    visible INT DEFAULT 1,
+    create_time DATETIME,
+    update_time DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS sys_role_menu (
+    role_code VARCHAR(64) NOT NULL,
+    menu_code VARCHAR(64) NOT NULL,
+    PRIMARY KEY (role_code, menu_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS sys_portal_role (
+    portal_code VARCHAR(64) NOT NULL,
+    role_code VARCHAR(64) NOT NULL,
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    remark VARCHAR(255),
+    create_time DATETIME,
+    PRIMARY KEY (portal_code, role_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

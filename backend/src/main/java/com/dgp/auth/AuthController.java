@@ -100,10 +100,35 @@ public class AuthController {
     @GetMapping("/menus")
     public Result<Object> menus() {
         List<M> filtered = new ArrayList<>();
-        for (M m : MenuCatalog.all()) {
-            Object perm = m.get("perm");
-            if (perm == null || me().has(String.valueOf(perm))) {
-                filtered.add(m);
+        try {
+            List<Map<String, Object>> dbMenus = db.list(
+                    "SELECT * FROM sys_menu WHERE status='ENABLED' AND visible=1 ORDER BY sort_no, id");
+            if (!dbMenus.isEmpty()) {
+                Set<String> roleMenus = null;
+                try {
+                    List<Map<String, Object>> rm = db.list(
+                            "SELECT menu_code FROM sys_role_menu WHERE role_code=?", me().getRoleCode());
+                    if (!rm.isEmpty()) {
+                        roleMenus = new java.util.HashSet<>();
+                        for (Map<String, Object> x : rm) roleMenus.add(String.valueOf(x.get("menuCode")));
+                    }
+                } catch (Exception ignore) {
+                }
+                for (Map<String, Object> m : dbMenus) {
+                    String code = String.valueOf(m.get("code"));
+                    if (roleMenus != null && !roleMenus.contains(code)) continue;
+                    Object perm = m.get("perm");
+                    if (perm != null && !me().has(String.valueOf(perm))) continue;
+                    filtered.add(M.of("code", code, "name", m.get("title"), "path", m.get("path"),
+                            "icon", m.get("icon"), "perm", perm, "domain", m.get("parentCode")));
+                }
+            }
+        } catch (Exception ignore) {
+        }
+        if (filtered.isEmpty()) {
+            for (M m : MenuCatalog.all()) {
+                Object perm = m.get("perm");
+                if (perm == null || me().has(String.valueOf(perm))) filtered.add(m);
             }
         }
         return Result.ok(M.of("menus", filtered, "industryCode", tenantIndustry()));

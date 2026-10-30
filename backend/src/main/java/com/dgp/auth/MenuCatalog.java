@@ -44,6 +44,7 @@ public final class MenuCatalog {
         out.add(item("migration-agg", "聚合汇总", "/migration/agg", "DataAnalysis", "migration:agg:view", "integration"));
         out.add(item("industry", "行业适配", "/industry", "Box", "industry:package:view", "industry"));
         out.add(item("admin", "系统管理", "/admin", "Setting", "sys:config:view", "admin"));
+        out.add(item("admin-menus", "菜单与门户", "/admin/menus", "Menu", "sys:menu:view", "admin"));
         return out;
     }
 }

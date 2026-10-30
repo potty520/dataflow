@@ -340,6 +340,16 @@ export const adminApi = {
   dicts: () => http.get('/api/v1/admin/dicts'),
   apis: () => http.get('/api/v1/admin/apis'),
   loginLogs: (params) => http.get('/api/v1/admin/logs/login', { params }),
+  menus: () => http.get('/api/v1/admin/menus'),
+  createMenu: (data) => http.post('/api/v1/admin/menus', data),
+  updateMenu: (id, data) => http.put(`/api/v1/admin/menus/${id}`, data),
+  deleteMenu: (id) => http.delete(`/api/v1/admin/menus/${id}`),
+  roleMenus: (roleCode) => http.get(`/api/v1/admin/menus/roles/${roleCode}`),
+  saveRoleMenus: (roleCode, menuCodes) => http.post(`/api/v1/admin/menus/roles/${roleCode}`, { menuCodes }),
+  portals: () => http.get('/api/v1/admin/menus/portals'),
+  addPortalRole: (data) => http.post('/api/v1/admin/menus/portals', data),
+  removePortalRole: (portalCode, roleCode) => http.delete(`/api/v1/admin/menus/portals/${portalCode}/${roleCode}`),
+
   operationLogs: (params) => http.get('/api/v1/admin/logs/operation', { params })
 }
 
