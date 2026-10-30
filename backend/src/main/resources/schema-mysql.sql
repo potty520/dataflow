@@ -1422,3 +1422,35 @@ CREATE TABLE IF NOT EXISTS std_base_item (
     KEY idx_std_base_item_group (group_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+-- ============================================================
+-- v1.8：建模类型映射 / 库间字段映射配置（BF-11）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS mdl_type_mapping (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_type VARCHAR(64) NOT NULL,
+    target_dialect VARCHAR(16) NOT NULL,
+    target_type VARCHAR(64) NOT NULL,
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    remark VARCHAR(255),
+    create_time DATETIME,
+    update_time DATETIME,
+    CONSTRAINT uk_mdl_type_mapping UNIQUE (source_type, target_dialect)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS mdl_column_mapping (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    model_id BIGINT,
+    source_table VARCHAR(128),
+    source_column VARCHAR(128),
+    target_table VARCHAR(128),
+    target_column VARCHAR(128),
+    source_type VARCHAR(64),
+    target_type VARCHAR(64),
+    expression VARCHAR(500),
+    status VARCHAR(16) DEFAULT 'ENABLED',
+    remark VARCHAR(255),
+    create_time DATETIME,
+    KEY idx_mdl_col_map_model (model_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+

@@ -15,6 +15,7 @@ const routes = [
       { path: 'metadata/collect', component: () => import('@/views/Metadata.vue'), meta: { title: '采集任务', perm: 'metadata:collect:view', tab: 'collect' } },
       { path: 'lineage', component: () => import('@/views/Lineage.vue'), meta: { title: '血缘分析', perm: 'metadata:lineage:view' } },
       { path: 'model', component: () => import('@/views/Model.vue'), meta: { title: '数据建模', perm: 'model:model:view' } },
+      { path: 'model/mapping', component: () => import('@/views/ModelMapping.vue'), meta: { title: '类型与字段映射', perm: 'model:mapping:view' } },
       { path: 'standard', component: () => import('@/views/Standard.vue'), meta: { title: '数据标准', perm: 'standard:element:view', tab: 'element' } },
       { path: 'standard/mapping', component: () => import('@/views/StandardMapping.vue'), meta: { title: '标准映射与落地', perm: 'standard:mapping:view' } },
       { path: 'integration', component: () => import('@/views/Integration.vue'), meta: { title: '数据集成', perm: 'integration:job:view' } },

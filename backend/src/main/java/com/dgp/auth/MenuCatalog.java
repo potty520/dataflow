@@ -23,6 +23,7 @@ public final class MenuCatalog {
         out.add(item("metadata-collect", "采集任务", "/metadata/collect", "Refresh", "metadata:collect:view", "metadata"));
         out.add(item("lineage", "血缘分析", "/lineage", "Share", "metadata:lineage:view", "metadata"));
         out.add(item("model", "数据建模", "/model", "Grid", "model:model:view", "model"));
+        out.add(item("model-mapping", "类型与字段映射", "/model/mapping", "Switch", "model:mapping:view", "model"));
         out.add(item("standard", "数据标准", "/standard", "Collection", "standard:element:view", "standard"));
         out.add(item("standard-map", "标准映射与落地", "/standard/mapping", "Connection", "standard:mapping:view", "standard"));
         out.add(item("integration", "数据集成", "/integration", "Operation", "integration:job:view", "integration"));

@@ -35,9 +35,12 @@ public class MigrationService {
     private final Db db;
     private final CrossMigrationService cross;
 
-    public MigrationService(Db db, CrossMigrationService cross) {
+    private final com.dgp.model.TypeMappingService typeMapping;
+
+    public MigrationService(Db db, CrossMigrationService cross, com.dgp.model.TypeMappingService typeMapping) {
         this.db = db;
         this.cross = cross;
+        this.typeMapping = typeMapping;
     }
 
     // ------------------------------------------------------------ 基础校验
@@ -207,11 +210,11 @@ public class MigrationService {
         return sb.toString();
     }
 
-    private static String ddlType(String targetType, String sourceType, String dialect) {
+    private String ddlType(String targetType, String sourceType, String dialect) {
         String t = (targetType == null || targetType.isBlank()) ? sourceType : targetType;
         String f = family(t == null ? "" : t.toLowerCase(Locale.ROOT));
         boolean pg = "POSTGRESQL".equalsIgnoreCase(dialect);
-        return switch (f) {
+        String def = switch (f) {
             case "str" -> "VARCHAR(255)";
             case "int" -> "BIGINT";
             case "num" -> pg ? "NUMERIC(18,2)" : "DECIMAL(18,2)";
@@ -219,6 +222,7 @@ public class MigrationService {
             case "bool" -> pg ? "BOOLEAN" : "TINYINT";
             default -> "VARCHAR(255)";
         };
+        return typeMapping.resolve(t, dialect, def);
     }
 
     /** 目标端方言：目标是远程数据源时取其 db_type，否则按本库 MySQL。 */

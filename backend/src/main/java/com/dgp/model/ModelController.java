@@ -1,6 +1,7 @@
 package com.dgp.model;
 
 import com.dgp.common.*;
+import com.dgp.model.TypeMappingService;
 import com.dgp.metadata.service.LineageService;
 import com.dgp.security.AuthContext;
 import com.dgp.security.RequirePerm;
@@ -28,9 +29,12 @@ public class ModelController {
     private final Db db;
     private final LineageService lineageService;
 
-    public ModelController(Db db, LineageService lineageService) {
+    private final TypeMappingService typeMapping;
+
+    public ModelController(Db db, LineageService lineageService, TypeMappingService typeMapping) {
         this.db = db;
         this.lineageService = lineageService;
+        this.typeMapping = typeMapping;
     }
 
     @GetMapping("/models")
@@ -312,7 +316,7 @@ public class ModelController {
 
     private String sqlType(String type, String len) {
         if (type == null) return "VARCHAR(64)";
-        return switch (type.toUpperCase()) {
+        String def = switch (type.toUpperCase()) {
             case "STRING", "VARCHAR" -> "VARCHAR(" + (len != null && len.matches("\\d{1,4}") ? len : "64") + ")";
             case "DECIMAL" -> "DECIMAL(" + (len != null && len.matches("[\\d,]{1,9}") ? len : "12,2") + ")";
             case "INT", "INTEGER" -> "INT";
@@ -321,6 +325,7 @@ public class ModelController {
             case "TIMESTAMP" -> "TIMESTAMP";
             default -> "VARCHAR(64)";
         };
+        return typeMapping.resolve(type, "MYSQL", def);
     }
 
     private String snapshot(long modelId) {
