@@ -101,8 +101,8 @@ public class IntegrationConfigController {
     @RequirePerm("integration:config:view")
     public Result<Object> incr(@RequestParam(required = false) Long jobId) {
         return Result.ok(M.of("records", jobId == null
-                ? db.list("SELECT id,tenant_id,job_id,field_name,field_type,start_value,current_value AS last_value,status,remark,create_time,update_time FROM int_incr_config ORDER BY id")
-                : db.list("SELECT id,tenant_id,job_id,field_name,field_type,start_value,current_value AS last_value,status,remark,create_time,update_time FROM int_incr_config WHERE job_id=?", jobId)));
+                ? db.list("SELECT id,tenant_id,job_id,field_name,field_type,start_value,current_value AS lastValue,status,remark,create_time,update_time FROM int_incr_config ORDER BY id")
+                : db.list("SELECT id,tenant_id,job_id,field_name,field_type,start_value,current_value AS lastValue,status,remark,create_time,update_time FROM int_incr_config WHERE job_id=?", jobId)));
     }
 
     @PostMapping("/incr")

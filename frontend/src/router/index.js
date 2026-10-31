@@ -39,7 +39,8 @@ const routes = [
       { path: 'migration/agg', component: () => import('@/views/Aggregation.vue'), meta: { title: '聚合汇总', perm: 'migration:agg:view' } },
       { path: 'industry', component: () => import('@/views/Industry.vue'), meta: { title: '行业适配', perm: 'industry:package:view' } },
       { path: 'admin', component: () => import('@/views/Admin.vue'), meta: { title: '系统管理', perm: 'sys:config:view' } },
-      { path: 'admin/menus', component: () => import('@/views/AdminMenus.vue'), meta: { title: '菜单与门户', perm: 'sys:menu:view' } }
+      { path: 'admin/menus', component: () => import('@/views/AdminMenus.vue'), meta: { title: '菜单与门户', perm: 'sys:menu:view' } },
+      { path: 'monitor', component: () => import('@/views/Monitor.vue'), meta: { title: '运维监控', perm: 'monitor:view' } }
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/overview' }
