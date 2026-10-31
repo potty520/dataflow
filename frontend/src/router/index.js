@@ -99,11 +99,8 @@ router.beforeEach(async (to, from) => {
   if (to.meta.perm && !store.has(to.meta.perm)) {
     // 需要菜单列表才能算出可访问目标，首次进入时先加载一次
     if (!store.loaded) {
-      try {
-        await store.fetchMenus()
-      } catch (e) {
-        /* 菜单加载失败不阻塞导航 */
-      }
+      // 首屏不阻塞：菜单旁路加载，后端接口仍按权限校验
+      store.fetchMenus().catch(() => {})
     }
     // 登录后自动跳到首个可访问页时不再提示（避免"登录成功"后紧跟一条无权限警告）
     if (deniedWarnedFor !== to.path && from.path !== '/login') {

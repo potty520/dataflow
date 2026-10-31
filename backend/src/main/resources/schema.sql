@@ -1509,7 +1509,7 @@ CREATE TABLE IF NOT EXISTS int_incr_config (
     field_name VARCHAR(128) NOT NULL,
     field_type VARCHAR(16) DEFAULT 'TIMESTAMP',
     start_value VARCHAR(255),
-    last_value VARCHAR(255),
+    current_value VARCHAR(255),
     status VARCHAR(16) DEFAULT 'ENABLED',
     remark VARCHAR(255),
     create_time TIMESTAMP,

@@ -1513,7 +1513,7 @@ CREATE TABLE IF NOT EXISTS int_incr_config (
     field_name VARCHAR(128) NOT NULL,
     field_type VARCHAR(16) DEFAULT 'DATETIME',
     start_value VARCHAR(255),
-    last_value VARCHAR(255),
+    current_value VARCHAR(255),
     status VARCHAR(16) DEFAULT 'ENABLED',
     remark VARCHAR(255),
     create_time DATETIME,
@@ -1743,4 +1743,4 @@ CREATE TABLE IF NOT EXISTS cdc_run (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- v1.17：BPM 会签/加签
-ALTER TABLE bpm_task ADD COLUMN IF NOT EXISTS approval_mode VARCHAR(16) DEFAULT 'SINGLE';
+

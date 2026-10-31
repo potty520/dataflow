@@ -101,8 +101,8 @@ public class IntegrationConfigController {
     @RequirePerm("integration:config:view")
     public Result<Object> incr(@RequestParam(required = false) Long jobId) {
         return Result.ok(M.of("records", jobId == null
-                ? db.list("SELECT * FROM int_incr_config ORDER BY id")
-                : db.list("SELECT * FROM int_incr_config WHERE job_id=?", jobId)));
+                ? db.list("SELECT id,tenant_id,job_id,field_name,field_type,start_value,current_value AS last_value,status,remark,create_time,update_time FROM int_incr_config ORDER BY id")
+                : db.list("SELECT id,tenant_id,job_id,field_name,field_type,start_value,current_value AS last_value,status,remark,create_time,update_time FROM int_incr_config WHERE job_id=?", jobId)));
     }
 
     @PostMapping("/incr")
@@ -115,14 +115,14 @@ public class IntegrationConfigController {
         }
         Map<String, Object> exist = db.one("SELECT * FROM int_incr_config WHERE job_id=?", jobId);
         if (exist == null) {
-            long id = db.insert("INSERT INTO int_incr_config(tenant_id,job_id,field_name,field_type,start_value,last_value,"
+            long id = db.insert("INSERT INTO int_incr_config(tenant_id,job_id,field_name,field_type,start_value,current_value,"
                             + "status,remark,create_time,update_time) VALUES(?,?,?,?,?,?,?,?,?,?)",
                     AuthContext.tenantId(), jobId, field, b.getOrDefault("fieldType", "TIMESTAMP"),
                     b.get("startValue"), b.get("startValue"), b.getOrDefault("status", "ENABLED"),
                     b.get("remark"), LocalDateTime.now(), LocalDateTime.now());
             return Result.ok(M.of("id", id));
         }
-        db.update("UPDATE int_incr_config SET field_name=?,field_type=?,start_value=?,last_value=?,status=?,remark=?,"
+        db.update("UPDATE int_incr_config SET field_name=?,field_type=?,start_value=?,current_value=?,status=?,remark=?,"
                         + "update_time=? WHERE job_id=?",
                 field, b.containsKey("fieldType") ? b.get("fieldType") : exist.get("fieldType"),
                 b.containsKey("startValue") ? b.get("startValue") : exist.get("startValue"),

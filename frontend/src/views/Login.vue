@@ -95,7 +95,7 @@ const submit = async () => {
     ElMessage.success('登录成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
     const target = redirect.startsWith('/') && redirect !== '/login' ? redirect : '/overview'
-    router.replace(target)
+    await router.replace(target)
   } catch (e) {
     // http 层已提示具体失败原因
   } finally {
