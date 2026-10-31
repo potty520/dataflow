@@ -335,3 +335,66 @@
 | POST | `/open/oauth2/token` | ç»å½æ | OpenApiController#token |
 | POST | `/open/v1/**` | ç»å½æ | OpenApiController#post |
 | GET | `/open/v1/**` | ç»å½æ | OpenApiController#get |
+
+## 2026-10-31 新增接口（BF-07~BF-12 / P1 / 部署修复）
+
+> 以下为增量接口；权限点为对应模块 `*:view/edit/run`，管理员 `*` 默认可用。
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET | `/api/v1/standard/base/stats` | standard:base:view | 四类基础标准统计 |
+| GET/POST | `/api/v1/standard/base/groups` | standard:base:view/edit | 基础标准分组查询/新建 |
+| PUT/DELETE | `/api/v1/standard/base/groups/{id}` | standard:base:edit | 分组编辑/删除（级联条目） |
+| GET/POST | `/api/v1/standard/base/groups/{id}/items` | standard:base:view/edit | 条目查询/新建 |
+| PUT/DELETE | `/api/v1/standard/base/items/{id}` | standard:base:edit | 条目编辑/删除 |
+| POST | `/api/v1/standard/base/groups/{id}/items/batch` | standard:base:edit | 条目批量导入 |
+| GET | `/api/v1/admin/logs/operation` | sys:log:view | 操作日志多条件查询 |
+| GET | `/api/v1/admin/logs/login` | sys:log:view | 登录日志多条件查询 |
+| GET/POST | `/api/v1/model/mappings/types` | model:mapping:view/edit | 类型映射查询/新建 |
+| PUT/DELETE | `/api/v1/model/mappings/types/{id}` | model:mapping:edit | 类型映射编辑/删除 |
+| GET | `/api/v1/model/mappings/types/resolve` | model:mapping:view | 类型解析 |
+| GET/POST | `/api/v1/model/mappings/columns` | model:mapping:view/edit | 库间字段映射查询/新建 |
+| PUT/DELETE | `/api/v1/model/mappings/columns/{id}` | model:mapping:edit | 字段映射编辑/删除 |
+| GET/POST | `/api/v1/quality/config/issue-rules` | quality:config:view/edit | 工单规则 |
+| PUT/DELETE | `/api/v1/quality/config/issue-rules/{id}` | quality:config:edit | 工单规则编辑/删除 |
+| GET/POST | `/api/v1/quality/config/check-templates` | quality:config:view/edit | 稽核模板 |
+| PUT/DELETE | `/api/v1/quality/config/check-templates/{id}` | quality:config:edit | 模板编辑/删除 |
+| POST | `/api/v1/quality/config/check-templates/{id}/apply` | quality:config:edit | 从模板生成稽核任务 |
+| GET/POST | `/api/v1/admin/menus` | sys:menu:view/edit | 菜单树查询/新建 |
+| PUT/DELETE | `/api/v1/admin/menus/{id}` | sys:menu:edit | 菜单编辑/删除 |
+| GET/POST | `/api/v1/admin/menus/roles/{roleCode}` | sys:menu:view/edit | 角色菜单查询/保存 |
+| GET/POST | `/api/v1/admin/menus/portals` | sys:menu:view/edit | 门户-角色映射 |
+| DELETE | `/api/v1/admin/menus/portals/{portalCode}/{roleCode}` | sys:menu:edit | 删除映射 |
+| GET/PUT | `/api/v1/admin/cas/config` | sys:cas:view/edit | CAS 配置 |
+| GET/POST | `/api/v1/admin/portals` | sys:cas:view/edit | 门户列表 |
+| PUT/DELETE | `/api/v1/admin/portals/{id}` | sys:cas:edit | 门户编辑/删除 |
+| GET | `/api/v1/auth/cas/status` | 公开 | CAS 启用状态 |
+| GET | `/api/v1/auth/cas/login` | 公开 | 跳转 CAS 登录 |
+| GET | `/api/v1/auth/cas/callback` | 公开 | ticket 校验回调 |
+| POST | `/api/v1/auth/cas/exchange` | 公开（code 一次性） | code 换 JWT |
+| GET/POST | `/api/v1/bpm/defs` | bpm:def:view/edit | 流程定义 |
+| PUT/DELETE | `/api/v1/bpm/defs/{id}` | bpm:def:edit | 流程编辑/删除 |
+| POST | `/api/v1/bpm/defs/{id}/publish` | bpm:def:edit | 发布流程 |
+| GET/POST | `/api/v1/bpm/instances`、`/instances/mine`、`/instances/{id}` | bpm:task:view/start | 实例发起/查询/详情 |
+| GET | `/api/v1/bpm/tasks/todo` | bpm:task:view | 我的待办 |
+| POST | `/api/v1/bpm/tasks/{id}/approve|reject|transfer|add-sign` | bpm:task:handle | 通过/驳回/转办/加签 |
+| GET/POST/DELETE | `/api/v1/bpm/hooks` | bpm:def:view/edit | 业务挂接配置 |
+| GET | `/api/v1/monitor/overview` | monitor:view | 监控概览 |
+| POST | `/api/v1/monitor/collect` | monitor:edit | 立即采集 |
+| GET | `/api/v1/monitor/snapshots` | monitor:view | 指标快照 |
+| GET | `/api/v1/monitor/alerts` | monitor:view | 告警列表 |
+| POST | `/api/v1/monitor/alerts/{id}/ack` | monitor:edit | 告警处置 |
+| GET/POST | `/api/v1/monitor/rules` | monitor:view/edit | 告警规则查询/保存 |
+| DELETE | `/api/v1/monitor/rules/{id}` | monitor:edit | 删除规则 |
+| GET/POST | `/api/v1/cdc/tasks` | cdc:view/edit | 同步任务查询/保存 |
+| DELETE | `/api/v1/cdc/tasks/{id}` | cdc:edit | 删除任务 |
+| POST | `/api/v1/cdc/tasks/{id}/run` | cdc:run | 执行同步 |
+| GET | `/api/v1/cdc/runs` | cdc:view | 运行记录 |
+| GET/POST | `/api/v1/integration/config/functions` | integration:config:view/edit | 函数库 |
+| PUT/DELETE | `/api/v1/integration/config/functions/{id}` | integration:config:edit | 函数编辑/删除 |
+| POST | `/api/v1/integration/config/functions/test` | integration:config:view | 函数试算 |
+| GET/POST | `/api/v1/integration/config/incr` | integration:config:view/edit | 增量字段 |
+| DELETE | `/api/v1/integration/config/incr/{id}` | integration:config:edit | 删除增量配置 |
+| GET/POST | `/api/v1/integration/config/batch` | integration:config:view/edit | 批次配置 |
+| DELETE | `/api/v1/integration/config/batch/{id}` | integration:config:edit | 删除批次配置 |
+| PUT/DELETE | `/api/v1/report/templates/{id}` | report:template:edit | 报告模板编辑/删除 |
