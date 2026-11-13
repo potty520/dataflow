@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: dgp-gateway
+  cloud:
+    nacos:
+      config:
+        enabled: ${DGP_NACOS_ENABLED:false}
+        file-extension: yml

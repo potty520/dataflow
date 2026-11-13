@@ -34,7 +34,14 @@ export const metadataApi = {
   createDatasource: (data) => http.post('/api/v1/metadata/datasources', data),
   updateDatasource: (id, data) => http.put(`/api/v1/metadata/datasources/${id}`, data),
   testDatasource: (id) => http.post(`/api/v1/metadata/datasources/${id}/test`),
-  search: (params) => http.get('/api/v1/metadata/search', { params }),
+  // 优先走 dgp-search 统一检索（types=TABLE）；失败时回退 core SQL LIKE
+  search: async (params) => {
+    try {
+      return await http.get('/api/v1/search', { params: { ...params, types: 'TABLE' } })
+    } catch (e) {
+      return http.get('/api/v1/metadata/search', { params })
+    }
+  },
   tables: (params) => http.get('/api/v1/metadata/tables', { params }),
   table: (id) => http.get(`/api/v1/metadata/tables/${id}`),
   updateTable: (id, data) => http.put(`/api/v1/metadata/tables/${id}`, data),
@@ -319,8 +326,20 @@ export const securityApi = {
   stats: () => http.get('/api/v1/security/stats/overview', { silent: true })
 }
 
+export const searchApi = {
+  query: (params) => http.get('/api/v1/search', { params }),
+  status: () => http.get('/api/v1/search/status', { silent: true }),
+  reindex: () => http.post('/api/v1/search/reindex')
+}
+
 export const assetApi = {
-  search: (params) => http.get('/api/v1/asset/catalog/search', { params }),
+  search: async (params) => {
+    try {
+      return await http.get('/api/v1/search', { params: { ...params, types: 'ASSET' } })
+    } catch (e) {
+      return http.get('/api/v1/asset/catalog/search', { params })
+    }
+  },
   detail: (id) => http.get(`/api/v1/asset/catalog/${id}`),
   categories: () => http.get('/api/v1/asset/categories/tree', { silent: true }),
   map: () => http.get('/api/v1/asset/map/overview'),

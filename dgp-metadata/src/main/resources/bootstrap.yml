@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: dgp-metadata
+  cloud:
+    nacos:
+      config:
+        enabled: ${DGP_NACOS_ENABLED:false}

@@ -1,4 +1,5 @@
 ﻿param([string]$Base = "http://127.0.0.1:8080")
+# 微服务形态：Base 必须指向网关（默认 8080），勿直连 core:8082
 $ErrorActionPreference = "Continue"
 $base = $Base
 $script:pass = 0; $script:fail = 0
@@ -28,7 +29,15 @@ function Payload($t) {
     switch ($p.Length % 4) { 2 { $p += '==' } 3 { $p += '=' } }
     return ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($p)) | ConvertFrom-Json)
 }
-$pa = Payload $tok; $pr = Payload $ref
+function JwtHeader($t) {
+    $p = $t.Split('.')[0]; $p = $p.Replace('-', '+').Replace('_', '/')
+    switch ($p.Length % 4) { 2 { $p += '==' } 3 { $p += '=' } }
+    return ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($p)) | ConvertFrom-Json)
+}
+$pa = Payload $tok; $pr = Payload $ref; $ha = JwtHeader $tok
+Check "JWT alg=RS256" ($ha.alg -eq 'RS256') ("alg=" + $ha.alg)
+$jwks = J (Call "GET" "/api/v1/auth/jwks" $null $null)
+Check "JWKS 含 RSA 公钥" ($jwks.keys.Count -ge 1 -and $jwks.keys[0].kty -eq 'RSA') ("keys=" + $jwks.keys.Count)
 Check "access TTL = 30min" (($pa.exp - $pa.iat) -eq 1800) ("ttl=" + ($pa.exp - $pa.iat) + "s")
 Check "refresh TTL = 7d" (($pr.exp - $pr.iat) -eq 604800) ("ttl=" + ($pr.exp - $pr.iat) + "s")
 Check "access typ=access" ($pa.typ -eq 'access') $pa.typ
@@ -109,6 +118,10 @@ $vc = J (Call "POST" "/api/v1/security/audit/verify-chain" $H '{"limit":5000}')
 Check "审计链完整" ($vc.data.intact -eq $true) ("intact=" + $vc.data.intact + " brokenAt=" + $vc.data.brokenAt + " checked=" + $vc.data.checked)
 $au = J (Call "GET" "/api/v1/security/audit/logs?pageSize=1" $H $null)
 Check "日志页 chainVerified 与真实一致" ($au.data.chainVerified -eq $vc.data.intact) ("chainVerified=" + $au.data.chainVerified)
+$sch = J (Call "GET" "/api/v1/scheduler/status" $H $null)
+Check "调度服务经网关可达" ([bool]$sch.data.engine) ("engine=" + $sch.data.engine)
+$sr = J (Call "GET" "/api/v1/search?keyword=ods&types=TABLE&pageSize=3" $H $null)
+Check "检索服务经网关可达" ($null -ne $sr.data.records -or $null -ne $sr.data.total) ("total=" + $sr.data.total + " engine=" + $sr.data.engine)
 
 Write-Output "=========== 7. 质量闭环 ==========="
 $score0 = (J (Call "GET" "/api/v1/quality/scores" $H $null)).data.overallScore
@@ -142,7 +155,7 @@ $empty = $wf.data.records | Where-Object { -not $_.dsl -or $_.dsl -notmatch '"jo
 $tr = Call "POST" "/api/v1/workflow/definitions/8/trigger" $H $null
 Check "工作流触发（节点缺失应失败或部分失败）" ($tr.Status -ge 400 -or (J $tr).data.status -ne "SUCCESS" -or (J $tr).data.nodeCount -gt 0) ("HTTP " + $tr.Status + " status=" + (J $tr).data.status + " nodes=" + (J $tr).data.nodeCount)
 $sy = J (Call "GET" "/api/v1/workflow/sync/status" $H $null)
-Check "调度同步状态不再伪造" ($sy.data.supported -eq $false) ("syncStatus=" + $sy.data.syncStatus)
+Check "调度同步状态如实标注" (($sy.data.engine -eq 'local-scheduler' -or $sy.data.engine -eq 'dgp-scheduler') -and ($null -ne $sy.data.syncStatus)) ("engine=" + $sy.data.engine + " sync=" + $sy.data.syncStatus)
 
 Write-Output "=========== 9. 假实现修复 ==========="
 Check "不存在的任务 -> 404" ((Call "GET" "/api/v1/admin/tasks/no-such-task" $H $null).Status -eq 404) ""

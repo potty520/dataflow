@@ -1,0 +1,51 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: dgp-scheduler
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${DGP_NACOS_ADDR:127.0.0.1:8848}
+        enabled: ${DGP_NACOS_ENABLED:false}
+      config:
+        enabled: ${DGP_NACOS_ENABLED:false}
+
+dgp:
+  gateway-hmac-secret: ${DGP_GATEWAY_HMAC_SECRET:dev-gateway-hmac-change-me}
+  scheduler-token: ${DGP_SCHEDULER_TOKEN:dev-scheduler-token-change-me}
+  core-base-url: ${DGP_CORE_URI:http://127.0.0.1:8082}
+  scheduler:
+    # local = 本服务扫描到期任务；xxl = 关闭 LocalDueScanner，仅作 XXL 执行器
+    # 若 DGP_XXL_ENABLED=true 且未显式指定 engine，则自动切到 xxl
+    engine: ${DGP_SCHEDULER_ENGINE:local}
+    xxl:
+      enabled: ${DGP_XXL_ENABLED:false}
+
+xxl:
+  job:
+    admin:
+      addresses: ${XXL_JOB_ADMIN:http://127.0.0.1:8090/xxl-job-admin}
+    accessToken: ${XXL_JOB_ACCESS_TOKEN:}
+    executor:
+      appname: dgp-scheduler
+      port: ${XXL_EXECUTOR_PORT:9999}
+      logpath: ./logs/xxl-job
+      logretentiondays: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.dgp.scheduler: INFO

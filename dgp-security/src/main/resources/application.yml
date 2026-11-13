@@ -1,0 +1,45 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: dgp-security
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:file:${DGP_H2_FILE:../data/dgp};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${DGP_NACOS_ADDR:127.0.0.1:8848}
+        enabled: ${DGP_NACOS_ENABLED:false}
+      config:
+        enabled: ${DGP_NACOS_ENABLED:false}
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: never
+
+dgp:
+  gateway-hmac-secret: ${DGP_GATEWAY_HMAC_SECRET:dev-gateway-hmac-change-me}
+  tenant:
+    strict: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.dgp: INFO

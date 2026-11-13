@@ -15,7 +15,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: '../backend/src/main/resources/static',
+    outDir: '../dgp-core/src/main/resources/static',
     emptyOutDir: true,
     target: 'es2019',
     chunkSizeWarningLimit: 2000

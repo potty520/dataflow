@@ -97,17 +97,19 @@ datagov/
 
 ## 快速开始
 
-### 方式一：默认 H2，一条命令起服务（推荐首次体验）
+> **微服务形态**：`gateway` / `auth` / `core` / `metadata(8083)` / `quality(8087)` / `security` / `scheduler` / `search`。说明：[一期](docs/微服务改造-第一期.md) · [二期](docs/微服务改造-第二期.md) · [三期](docs/微服务改造-第三期.md) · [四期](docs/微服务改造-第四期.md) · [元数据](docs/微服务改造-元数据拆分.md) · [质量](docs/微服务改造-质量拆分.md)。本地：`build.cmd` + `start-microservices.cmd`。
 
-需要 **JDK 17** 与 **Maven 3.9+**：
+### 方式一：微服务本地启动（推荐）
+
+需要 **JDK 17** 与 **Maven 3.9+**（建议 Redis：`docker compose -f deploy/compose/docker-compose.yml up -d redis`）：
 
 ```bash
-cd backend
-mvn -DskipTests clean package          # 首次会编译前端产物打包进 jar（仓库已内置构建结果）
-java -jar target/dgp-boot.jar          # 默认 8080 端口，H2 文件库自动建表并装载演示数据
+mvn -DskipTests package -pl dgp-common,dgp-gateway,dgp-auth,dgp-core -am
+# Windows：start-microservices.cmd
+# 或分别启动 auth:8081 → core:8082 → gateway:8080
 ```
 
-打开 <http://localhost:8080> 即可（首次启动会自动建 77 张表并写入 11 万+ 行演示数据，约 20~60 秒）。
+打开 <http://localhost:8080> 即可。
 
 ### 方式二：MySQL 8 作为后台库
 
@@ -176,22 +178,25 @@ npm run dev        # http://localhost:5173，/api 与 /open 自动代理到 127.
   - [全功能验收报告](docs/验收报告-全功能验证.md)：294 项断言口径与结果
   - [并发容量报告](docs/并发容量报告.md)：压测方法与优化前后数据
 
-## 质量保障（386 项业务断言 + 912 次鉴权请求）
+## 质量保障（网关验收 + 业务断言）
 
-仓库自带可复跑的验收脚本，覆盖「接口鉴权矩阵 + 13 个业务域链路 + 跨角色一致性」：
+微服务形态下 **`-Base` 一律指向网关 `http://127.0.0.1:8080`**（见 [微服务验收-网关冒烟](docs/微服务验收-网关冒烟.md)）：
 
 ```powershell
-.\verify.ps1 -Base http://127.0.0.1:8080                 # 冒烟回归 73 项
-.\verify\api_matrix.ps1 -Base http://127.0.0.1:8080      # 152 个 GET × 6 角色鉴权矩阵
-.\verify\flows_core.ps1 -Base http://127.0.0.1:8080      # 认证/RBAC/元数据/建模/标准 71 项
-.\verify\flows_ext.ps1  -Base http://127.0.0.1:8080      # 集成/调度/质量/安全 70 项
-.\verify\flows_rest.ps1 -Base http://127.0.0.1:8080      # 资产/服务/报告/行业/系统/一致性 82 项
-.\verify\flows_features.ps1 -Base http://127.0.0.1:8080  # 流式质检/实时推送/迁移映射 55 项
-.\verify\flows_tenant.ps1 -Base http://127.0.0.1:8080    # 多租户/会话安全/报告范围 23 项
-.\verify\flows_agg.ps1 -Base http://127.0.0.1:8080       # 聚合视图与 FULL/UPSERT 刷新 12 项
+.\verify\smoke_microservices.ps1 -Base http://127.0.0.1:8080   # 微服务探针（RS256/JWKS/路由）
+.\verify\run_gateway_suite.ps1 -Base http://127.0.0.1:8080     # 冒烟 + verify.ps1
+.\verify.ps1 -Base http://127.0.0.1:8080                       # 业务冒烟（含 scheduler/search）
+.\verify\api_matrix.ps1 -Base http://127.0.0.1:8080            # 鉴权矩阵
+.\verify\flows_core.ps1 -Base http://127.0.0.1:8080            # 认证/RBAC/元数据/建模/标准
+.\verify\flows_ext.ps1  -Base http://127.0.0.1:8080            # 集成/调度/质量/安全
+.\verify\flows_rest.ps1 -Base http://127.0.0.1:8080            # 资产/服务/报告/行业/系统
+.\verify\flows_features.ps1 -Base http://127.0.0.1:8080        # 流式质检/迁移映射
+.\verify\flows_tenant.ps1 -Base http://127.0.0.1:8080          # 多租户/会话安全
+.\verify\flows_agg.ps1 -Base http://127.0.0.1:8080             # 聚合视图刷新
+# 全量：.\verify\run_gateway_suite.ps1 -Full
 ```
 
-当前结果：**386 / 386 全部通过（73 + 71 + 70 + 82 + 55 + 23 + 12）**，鉴权矩阵 **912 次请求、0 个 5xx、0 个网络失败**。脚本会真实创建→校验状态机→清理探针数据；跨网迁移脚本 `flows_migration_v14.ps1` 依赖外部 DB/FTP/代理环境，本轮未复跑。
+单体时代曾报 **386 / 386**；微服务拆分后请以网关冒烟 + 上述脚本复跑结果为准。跨网迁移 `flows_migration_v14.ps1` 仍依赖外部 DB/FTP/代理。
 
 ## 性能数据
 

@@ -1,0 +1,64 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: dgp-auth
+  datasource:
+    driver-class-name: org.h2.Driver
+    # 与 dgp-core 共用同一 H2 文件（AUTO_SERVER 允许多进程）；可用 DGP_H2_FILE 覆盖
+    url: jdbc:h2:file:${DGP_H2_FILE:../data/dgp};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 4
+  data:
+    redis:
+      host: ${DGP_REDIS_HOST:127.0.0.1}
+      port: ${DGP_REDIS_PORT:6379}
+      password: ${DGP_REDIS_PASSWORD:}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${DGP_NACOS_ADDR:127.0.0.1:8848}
+        enabled: ${DGP_NACOS_ENABLED:false}
+      config:
+        server-addr: ${DGP_NACOS_ADDR:127.0.0.1:8848}
+        enabled: ${DGP_NACOS_ENABLED:false}
+  # 与 core 共用库时由 core 执行 Flyway；独立部署 auth 库时可设 DGP_AUTH_FLYWAY=true
+  flyway:
+    enabled: ${DGP_AUTH_FLYWAY:false}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  sql:
+    init:
+      mode: never
+
+dgp:
+  redis:
+    enabled: ${DGP_REDIS_ENABLED:false}
+  token-minutes: 30
+  refresh-days: 7
+  jwt-key-id: dgp-1
+  jwt-private-key: ${DGP_JWT_PRIVATE_KEY:}
+  jwt-public-key: ${DGP_JWT_PUBLIC_KEY:}
+  gateway-hmac-secret: ${DGP_GATEWAY_HMAC_SECRET:dev-gateway-hmac-change-me}
+  seed-demo-data: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.dgp: INFO

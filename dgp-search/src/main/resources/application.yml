@@ -1,0 +1,47 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: dgp-search
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:file:${DGP_H2_FILE:../data/dgp};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  elasticsearch:
+    uris: ${DGP_ES_URIS:http://127.0.0.1:9200}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${DGP_NACOS_ADDR:127.0.0.1:8848}
+        enabled: ${DGP_NACOS_ENABLED:false}
+      config:
+        enabled: ${DGP_NACOS_ENABLED:false}
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: never
+
+dgp:
+  gateway-hmac-secret: ${DGP_GATEWAY_HMAC_SECRET:dev-gateway-hmac-change-me}
+  search:
+    # true=Elasticsearch；false=本地内存索引（仍可统一 /api/v1/search，适合无 ES 环境）
+    elasticsearch:
+      enabled: ${DGP_ES_ENABLED:false}
+    index-name: ${DGP_ES_INDEX:dgp_catalog}
+    reindex-on-startup: ${DGP_SEARCH_REINDEX_ON_START:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.dgp.search: INFO

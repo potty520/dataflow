@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: dgp-migration
+  cloud:
+    nacos:
+      config:
+        enabled: ${DGP_NACOS_ENABLED:false}
+      discovery:
+        enabled: ${DGP_NACOS_ENABLED:false}

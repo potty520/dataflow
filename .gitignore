@@ -1,16 +1,22 @@
 # 构建产物
 backend/target/
+dgp-*/target/
 frontend/dist/
 backend/src/main/resources/static/
+dgp-core/src/main/resources/static/
 node_modules/
 *.class
 *.jar
+!**/src/main/resources/**/*.jar
 
 # 本地工具链（JDK / Maven / 依赖缓存，体积大，不入库）
 toolchain/
 
 # 运行时数据（H2 文件库、报告产物、日志）
 backend/data/
+data/
+*.mv.db
+*.trace.db
 backend/data/*.db
 backend/data/reports/
 *.log
